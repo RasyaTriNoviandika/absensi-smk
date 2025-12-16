@@ -1,0 +1,93 @@
+<?php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+
+class AuthController extends Controller
+{
+    public function showLogin()
+    {
+        if (auth()->check()) {
+            return $this->redirectBasedOnRole();
+        }
+        return view('auth.login');
+    }
+
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'username' => 'required',
+            'password' => 'required',
+        ]);
+
+        if (Auth::attempt($credentials, $request->remember)) {
+            $request->session()->regenerate();
+            return $this->redirectBasedOnRole();
+        }
+
+        return back()->withErrors([
+            'username' => 'Username atau password salah.',
+        ])->onlyInput('username');
+    }
+
+    public function showRegister()
+    {
+        return view('auth.register');
+    }
+
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'nisn' => 'required|digits:10|unique:users,nisn',
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username',
+            'password' => 'required|string|min:8|confirmed',
+            'class' => 'required|string',
+            'phone' => 'nullable|string|max:15',
+            'email' => 'nullable|email|unique:users,email',
+            'face_descriptor' => 'required|json', // Face data dari frontend
+        ]);
+
+        // Store profile photo if uploaded
+        $profilePhoto = null;
+        if ($request->hasFile('profile_photo')) {
+            $profilePhoto = $request->file('profile_photo')->store('profiles', 'public');
+        }
+
+        $user = User::create([
+            'nisn' => $validated['nisn'],
+            'name' => $validated['name'],
+            'username' => $validated['username'],
+            'password' => Hash::make($validated['password']),
+            'class' => $validated['class'],
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'role' => 'student',
+            'status' => 'pending',
+            'face_descriptor' => $validated['face_descriptor'],
+            'profile_photo' => $profilePhoto,
+        ]);
+
+        return redirect()->route('login')->with('success', 'Registrasi berhasil! Tunggu approval dari admin untuk dapat login.');
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->with('success', 'Anda telah logout.');
+    }
+
+    private function redirectBasedOnRole()
+    {
+        if (auth()->user()->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        return redirect()->route('student.dashboard');
+    }
+}

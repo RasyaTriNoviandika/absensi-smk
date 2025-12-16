@@ -1,0 +1,348 @@
+<?php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\Attendance;
+use App\Models\Setting;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\AttendanceExport;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+class AdminController extends Controller
+{
+    public function dashboard()
+    {
+        $today = today();
+        
+        // Today's statistics
+        $totalStudents = User::students()->approved()->count();
+        $todayAttendances = Attendance::today()->get();
+        
+        $stats = [
+            'total_students' => $totalStudents,
+            'present_today' => $todayAttendances->where('status', 'hadir')->count(),
+            'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
+            'alpha_today' => $totalStudents - $todayAttendances->whereIn('status', ['hadir', 'terlambat'])->count(),
+            'pending_approval' => User::students()->pending()->count(),
+        ];
+
+        // Weekly chart data
+        $weeklyData = $this->getWeeklyAttendanceData();
+
+        // Recent attendances
+        $recentAttendances = Attendance::with('user')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances'));
+    }
+
+    public function approvals()
+    {
+        $pendingUsers = User::students()
+            ->pending()
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('admin.approvals', compact('pendingUsers'));
+    }
+
+    public function approve(User $user)
+    {
+        if ($user->status !== 'pending') {
+            return back()->with('error', 'User sudah di-approve atau reject.');
+        }
+
+        $user->update(['status' => 'approved']);
+
+        return back()->with('success', "Akun {$user->name} berhasil di-approve.");
+    }
+
+    public function reject(User $user)
+    {
+        if ($user->status !== 'pending') {
+            return back()->with('error', 'User sudah di-approve atau reject.');
+        }
+
+        $user->update(['status' => 'rejected']);
+
+        return back()->with('success', "Akun {$user->name} ditolak.");
+    }
+
+    public function students(Request $request)
+    {
+        $query = User::students()->approved();
+
+        // Filter by class
+        if ($request->filled('class')) {
+            $query->where('class', $request->class);
+        }
+
+        // Search by name or NISN
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('nisn', 'like', "%{$search}%");
+            });
+        }
+
+        $students = $query->orderBy('name')->paginate(20);
+        $classes = $this->getAvailableClasses();
+
+        return view('admin.students', compact('students', 'classes'));
+    }
+
+    public function editStudent(User $user)
+    {
+        $classes = $this->getAvailableClasses();
+        return view('admin.students-edit', compact('user', 'classes'));
+    }
+
+    public function updateStudent(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'nisn' => 'required|digits:10|unique:users,nisn,' . $user->id,
+            'class' => 'required|string',
+            'phone' => 'nullable|string|max:15',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+        ]);
+
+        $user->update($validated);
+
+        return redirect()->route('admin.students')->with('success', 'Data siswa berhasil diupdate.');
+    }
+
+    public function deleteStudent(User $user)
+    {
+        $name = $user->name;
+        $user->delete();
+
+        return back()->with('success', "Siswa {$name} berhasil dihapus.");
+    }
+
+    public function resetPassword(User $user)
+    {
+        $newPassword = 'student' . rand(1000, 9999);
+        $user->update(['password' => Hash::make($newPassword)]);
+
+        return back()->with('success', "Password {$user->name} direset menjadi: {$newPassword}");
+    }
+
+    public function monitoring(Request $request)
+    {
+        $date = $request->get('date', today()->format('Y-m-d'));
+        $class = $request->get('class');
+        $status = $request->get('status');
+
+        $students = User::students()->approved();
+
+        if ($class) {
+            $students->where('class', $class);
+        }
+
+        $students = $students->get();
+
+        // Get attendances for the date
+        $attendances = Attendance::whereDate('date', $date)
+            ->with('user')
+            ->get()
+            ->keyBy('user_id');
+
+        // Build monitoring data
+        $monitoringData = $students->map(function($student) use ($attendances, $date) {
+            $attendance = $attendances->get($student->id);
+            
+            return [
+                'student' => $student,
+                'attendance' => $attendance,
+                'status' => $attendance ? $attendance->status : 'alpha',
+                'check_in' => $attendance ? $attendance->check_in : null,
+                'check_out' => $attendance ? $attendance->check_out : null,
+            ];
+        });
+
+        // Filter by status if provided
+        if ($status) {
+            $monitoringData = $monitoringData->filter(function($item) use ($status) {
+                return $item['status'] === $status;
+            });
+        }
+
+        $classes = $this->getAvailableClasses();
+
+        return view('admin.monitoring', compact('monitoringData', 'date', 'classes'));
+    }
+
+    public function history(Request $request)
+    {
+        $query = Attendance::with('user');
+
+        // Filter by date range
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('date', [$request->start_date, $request->end_date]);
+        } elseif ($request->filled('date')) {
+            $query->whereDate('date', $request->date);
+        } else {
+            // Default: current month
+            $query->whereMonth('date', now()->month)
+                  ->whereYear('date', now()->year);
+        }
+
+        // Filter by class
+        if ($request->filled('class')) {
+            $query->whereHas('user', function($q) use ($request) {
+                $q->where('class', $request->class);
+            });
+        }
+
+        // Filter by student
+        if ($request->filled('student_id')) {
+            $query->where('user_id', $request->student_id);
+        }
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $attendances = $query->orderBy('date', 'desc')
+            ->orderBy('check_in', 'asc')
+            ->paginate(50);
+
+        $classes = $this->getAvailableClasses();
+        $students = User::students()->approved()->orderBy('name')->get();
+
+        return view('admin.history', compact('attendances', 'classes', 'students'));
+    }
+
+    public function reports(Request $request)
+    {
+        $month = $request->get('month', now()->month);
+        $year = $request->get('year', now()->year);
+        $class = $request->get('class');
+
+        $query = User::students()->approved();
+
+        if ($class) {
+            $query->where('class', $class);
+        }
+
+        $students = $query->get();
+
+        // Calculate attendance for each student
+        $reportData = $students->map(function($student) use ($month, $year) {
+            $attendances = Attendance::where('user_id', $student->id)
+                ->whereMonth('date', $month)
+                ->whereYear('date', $year)
+                ->get();
+
+            $totalDays = Carbon::createFromDate($year, $month, 1)->daysInMonth;
+            $hadir = $attendances->where('status', 'hadir')->count();
+            $terlambat = $attendances->where('status', 'terlambat')->count();
+            $alpha = $totalDays - ($hadir + $terlambat);
+            $percentage = $totalDays > 0 ? (($hadir + $terlambat) / $totalDays) * 100 : 0;
+
+            return [
+                'student' => $student,
+                'hadir' => $hadir,
+                'terlambat' => $terlambat,
+                'alpha' => $alpha,
+                'percentage' => round($percentage, 1),
+            ];
+        });
+
+        $classes = $this->getAvailableClasses();
+
+        return view('admin.reports', compact('reportData', 'month', 'year', 'classes'));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $filename = 'attendance_' . now()->format('Y-m-d_His') . '.xlsx';
+        return Excel::download(new AttendanceExport($request->all()), $filename);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $query = Attendance::with('user');
+
+        // Apply same filters as history
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('date', [$request->start_date, $request->end_date]);
+        }
+
+        if ($request->filled('class')) {
+            $query->whereHas('user', function($q) use ($request) {
+                $q->where('class', $request->class);
+            });
+        }
+
+        $attendances = $query->orderBy('date', 'desc')->get();
+
+        $pdf = Pdf::loadView('admin.exports.attendance-pdf', compact('attendances'));
+        return $pdf->download('attendance_' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    public function settings()
+    {
+        $settings = Setting::all()->keyBy('key');
+        return view('admin.settings', compact('settings'));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'check_in_time_limit' => 'required|date_format:H:i',
+            'check_out_time_min' => 'required|date_format:H:i',
+            'school_name' => 'required|string|max:255',
+            'face_match_threshold' => 'required|numeric|min:0|max:1',
+        ]);
+
+        foreach ($validated as $key => $value) {
+            Setting::set($key, $value);
+        }
+
+        return back()->with('success', 'Pengaturan berhasil diupdate.');
+    }
+
+    // Helper methods
+    private function getWeeklyAttendanceData()
+    {
+        $data = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = today()->subDays($i);
+            $attendances = Attendance::whereDate('date', $date)->get();
+            
+            $data[] = [
+                'date' => $date->format('d M'),
+                'hadir' => $attendances->where('status', 'hadir')->count(),
+                'terlambat' => $attendances->where('status', 'terlambat')->count(),
+                'alpha' => User::students()->approved()->count() - $attendances->count(),
+            ];
+        }
+        return $data;
+    }
+
+    private function getAvailableClasses()
+    {
+        $tingkat = [10, 11, 12];
+        $jurusan = ['DKV', 'SIJA', 'PB'];
+        $rombel = [1, 2, 3];
+
+        $classes = [];
+        foreach ($tingkat as $t) {
+            foreach ($jurusan as $j) {
+                foreach ($rombel as $r) {
+                    $classes[] = "$t $j $r";
+                }
+            }
+        }
+        return $classes;
+    }
+}
