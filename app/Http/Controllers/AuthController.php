@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -10,9 +11,11 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
+        // Jika sudah login, redirect ke dashboard sesuai role
         if (auth()->check()) {
             return $this->redirectBasedOnRole();
         }
+        
         return view('auth.login');
     }
 
@@ -23,8 +26,18 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials, $request->remember)) {
+        if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
+            
+            // Check if user is approved (for students)
+            $user = auth()->user();
+            if ($user->isStudent() && !$user->isApproved()) {
+                Auth::logout();
+                return back()->withErrors([
+                    'username' => 'Akun Anda masih menunggu approval dari admin.',
+                ]);
+            }
+            
             return $this->redirectBasedOnRole();
         }
 
@@ -35,6 +48,11 @@ class AuthController extends Controller
 
     public function showRegister()
     {
+        // Jika sudah login, redirect
+        if (auth()->check()) {
+            return $this->redirectBasedOnRole();
+        }
+        
         return view('auth.register');
     }
 
@@ -48,14 +66,8 @@ class AuthController extends Controller
             'class' => 'required|string',
             'phone' => 'nullable|string|max:15',
             'email' => 'nullable|email|unique:users,email',
-            'face_descriptor' => 'required|json', // Face data dari frontend
+            'face_descriptor' => 'required|json',
         ]);
-
-        // Store profile photo if uploaded
-        $profilePhoto = null;
-        if ($request->hasFile('profile_photo')) {
-            $profilePhoto = $request->file('profile_photo')->store('profiles', 'public');
-        }
 
         $user = User::create([
             'nisn' => $validated['nisn'],
@@ -68,10 +80,11 @@ class AuthController extends Controller
             'role' => 'student',
             'status' => 'pending',
             'face_descriptor' => $validated['face_descriptor'],
-            'profile_photo' => $profilePhoto,
+            'profile_photo' => null,
         ]);
 
-        return redirect()->route('login')->with('success', 'Registrasi berhasil! Tunggu approval dari admin untuk dapat login.');
+        return redirect()->route('login')
+            ->with('success', 'Registrasi berhasil! Tunggu approval dari admin untuk dapat login.');
     }
 
     public function logout(Request $request)
@@ -80,14 +93,25 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')->with('success', 'Anda telah logout.');
+        return redirect()->route('login')
+            ->with('success', 'Anda telah logout.');
     }
 
     private function redirectBasedOnRole()
     {
-        if (auth()->user()->isAdmin()) {
+        $user = auth()->user();
+        
+        if ($user->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
-        return redirect()->route('student.dashboard');
+        
+        if ($user->isStudent() && $user->isApproved()) {
+            return redirect()->route('student.dashboard');
+        }
+        
+        // Jika student belum approved, logout
+        Auth::logout();
+        return redirect()->route('login')
+            ->with('error', 'Akun Anda masih menunggu approval dari admin.');
     }
 }

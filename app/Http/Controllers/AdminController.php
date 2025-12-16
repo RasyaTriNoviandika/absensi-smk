@@ -14,31 +14,43 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class AdminController extends Controller
 {
     public function dashboard()
-    {
-        $today = today();
+{
+    $today = today();
+    
+    // Optimize queries dengan select only needed columns
+    $totalStudents = User::students()->approved()->count();
+    $todayAttendances = Attendance::today()
+        ->select('status')
+        ->get();
+    
+    $stats = [
+        'total_students' => $totalStudents,
+        'present_today' => $todayAttendances->where('status', 'hadir')->count(),
+        'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
+        'alpha_today' => $totalStudents - $todayAttendances->count(),
+        'pending_approval' => User::students()->pending()->count(),
+    ];
+
+    // Weekly chart data - ambil hanya yang diperlukan
+    $weeklyData = [];
+    for ($i = 6; $i >= 0; $i--) {
+        $date = today()->subDays($i);
+        $count = Attendance::whereDate('date', $date)->count();
         
-        // Today's statistics
-        $totalStudents = User::students()->approved()->count();
-        $todayAttendances = Attendance::today()->get();
-        
-        $stats = [
-            'total_students' => $totalStudents,
-            'present_today' => $todayAttendances->where('status', 'hadir')->count(),
-            'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
-            'alpha_today' => $totalStudents - $todayAttendances->whereIn('status', ['hadir', 'terlambat'])->count(),
-            'pending_approval' => User::students()->pending()->count(),
+        $weeklyData[] = [
+            'date' => $date->format('d M'),
+            'count' => $count
         ];
+    }
 
-        // Weekly chart data
-        $weeklyData = $this->getWeeklyAttendanceData();
+    // Recent attendances - limit dan select columns
+    $recentAttendances = Attendance::with('user:id,name,nisn,class')
+        ->select('id', 'user_id', 'status', 'created_at')
+        ->latest()
+        ->limit(10)
+        ->get();
 
-        // Recent attendances
-        $recentAttendances = Attendance::with('user')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances'));
+    return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances'));
     }
 
     public function approvals()
