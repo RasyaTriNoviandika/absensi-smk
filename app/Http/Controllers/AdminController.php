@@ -13,9 +13,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminController extends Controller
 {
+
+    public function __construct()
+    {
+        $this->middleware(['auth', 'admin']);
+    }
+
     public function dashboard()
 {
-    $today = today();
+    $date = today()->format('Y-m-d');
+    $classes = $this->getAvailableClasses();
+    $monitoringData = [];
     
     // Optimize queries dengan select only needed columns
     $totalStudents = User::students()->approved()->count();
@@ -50,7 +58,7 @@ class AdminController extends Controller
         ->limit(10)
         ->get();
 
-    return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances'));
+    return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances' , 'date' , 'classes','monitoringData'));
     }
 
     public function approvals()
@@ -132,6 +140,9 @@ class AdminController extends Controller
 
     public function deleteStudent(User $user)
     {
+        if ($user->role !== 'student') {
+            abort(403);
+        }
         $name = $user->name;
         $user->delete();
 
@@ -140,6 +151,11 @@ class AdminController extends Controller
 
     public function resetPassword(User $user)
     {
+
+        if ($user->role !== 'student') {
+            abort(403);
+        }
+
         $newPassword = 'student' . rand(1000, 9999);
         $user->update(['password' => Hash::make($newPassword)]);
 

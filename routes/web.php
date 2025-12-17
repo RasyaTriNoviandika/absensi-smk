@@ -6,15 +6,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AdminController;
 
-// Root route - redirect based on auth status
+// Root route - Welcome page (landing page)
 Route::get('/', function () {
-    if (auth()->check()) {
-        if (auth()->user()->isAdmin()) {
-            return redirect()->route('admin.dashboard');
-        }
-        return redirect()->route('student.dashboard');
-    }
-    return redirect()->route('login');
+    return view('welcome');
 })->name('home');
 
 // Auth routes - only for guests
@@ -30,7 +24,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 
 // Student routes
 Route::middleware(['auth'])->group(function () {
-    // Check if user is student and approved
     Route::get('/dashboard', function() {
         $user = auth()->user();
         
@@ -53,7 +46,6 @@ Route::middleware(['auth'])->group(function () {
 
 // Admin routes
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Middleware check admin inline
     Route::get('/dashboard', function() {
         if (!auth()->user()->isAdmin()) {
             abort(403, 'Unauthorized');
@@ -78,7 +70,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     Route::get('/students', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->students();
+        return app(AdminController::class)->students(request());
     })->name('students');
     
     Route::get('/students/{user}/edit', function($user) {
@@ -103,27 +95,27 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     Route::get('/monitoring', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->monitoring();
+        return app(AdminController::class)->monitoring(request());
     })->name('monitoring');
     
     Route::get('/history', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->history();
+        return app(AdminController::class)->history(request());
     })->name('history');
     
     Route::get('/reports', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->reports();
+        return app(AdminController::class)->reports(request());
     })->name('reports');
     
     Route::get('/export/excel', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->exportExcel();
+        return app(AdminController::class)->exportExcel(request());
     })->name('export.excel');
     
     Route::get('/export/pdf', function() {
         if (!auth()->user()->isAdmin()) abort(403);
-        return app(AdminController::class)->exportPdf();
+        return app(AdminController::class)->exportPdf(request());
     })->name('export.pdf');
     
     Route::get('/settings', function() {

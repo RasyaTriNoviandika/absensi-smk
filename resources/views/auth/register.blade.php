@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrasi - Sistem Absensi SMK</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Registrasi Siswa</title>
+    @vite(['resources/css/app.css'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
-    <div class="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div class="min-h-screen py-8 px-4">
         <div class="max-w-2xl mx-auto">
             <!-- Back Button -->
-            <div class="mb-6">
-                <a href="{{ route('home') }}" class="text-gray-600 hover:text-gray-800 flex items-center">
-                    <i class="fas fa-arrow-left mr-2"></i>Kembali ke Beranda
+            <div class="mb-4">
+                <a href="{{ route('home') }}" class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-arrow-left mr-2"></i>Kembali
                 </a>
             </div>
 
-            <div class="text-center mb-8">
-                <i class="fas fa-user-plus text-6xl text-blue-600 mb-4"></i>
-                <h2 class="text-3xl font-bold text-gray-800">Registrasi Siswa Baru</h2>
-                <p class="text-gray-600 mt-2">Lengkapi data diri dan registrasi wajah Anda</p>
+            <div class="text-center mb-6">
+                <i class="fas fa-user-plus text-5xl text-blue-600 mb-3"></i>
+                <h2 class="text-2xl font-bold text-gray-800">Registrasi Siswa</h2>
+                <p class="text-gray-600">Isi data dan registrasi wajah</p>
             </div>
 
             @if($errors->any())
-                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
-                    <ul class="list-disc list-inside">
+                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
+                    <ul class="list-disc list-inside text-sm">
                         @foreach($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
@@ -33,152 +33,130 @@
                 </div>
             @endif
 
-            <div class="bg-white rounded-lg shadow-md p-8">
+            <div class="bg-white rounded shadow-sm p-6">
                 <form method="POST" action="{{ route('register') }}" id="registerForm">
                     @csrf
 
-                    <!-- Step 1: Personal Data -->
+                    <!-- Step 1: Data -->
                     <div id="step1">
-                        <h3 class="text-xl font-bold text-gray-800 mb-6">
-                            <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm mr-2">Step 1</span>
-                            Data Pribadi
-                        </h3>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="grid md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">NISN *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">NISN *</label>
                                 <input type="text" name="nisn" maxlength="10" required value="{{ old('nisn') }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <p class="text-xs text-gray-500 mt-1">10 digit</p>
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap *</label>
                                 <input type="text" name="name" required value="{{ old('name') }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="grid md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Kelas *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Kelas *</label>
                                 <select name="class" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     <option value="">Pilih Kelas</option>
                                     @foreach(['10 DKV 1', '10 DKV 2', '10 DKV 3', '11 DKV 1', '11 DKV 2', '11 DKV 3', '12 DKV 1', '12 DKV 2', '12 DKV 3', '10 SIJA 1', '10 SIJA 2', '10 SIJA 3', '11 SIJA 1', '11 SIJA 2', '11 SIJA 3', '12 SIJA 1', '12 SIJA 2', '12 SIJA 3', '10 PB 1', '10 PB 2', '10 PB 3', '11 PB 1', '11 PB 2', '11 PB 3', '12 PB 1', '12 PB 2', '12 PB 3'] as $class)
-                                        <option value="{{ $class }}" {{ old('class') == $class ? 'selected' : '' }}>{{ $class }}</option>
+                                        <option value="{{ $class }}">{{ $class }}</option>
                                     @endforeach
                                 </select>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">No. HP</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">No. HP</label>
                                 <input type="tel" name="phone" value="{{ old('phone') }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input type="email" name="email" value="{{ old('email') }}"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="grid md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
                                 <input type="text" name="username" required value="{{ old('username') }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                                 <input type="password" name="password" id="password" required minlength="8"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <p class="text-xs text-gray-500 mt-1">Min. 8 karakter</p>
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                         </div>
 
                         <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password *</label>
-                            <input type="password" name="password_confirmation" id="password_confirmation" required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Password *</label>
+                            <input type="password" name="password_confirmation" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
 
                         <button type="button" onclick="goToStep2()" 
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">
                             Lanjut ke Registrasi Wajah <i class="fas fa-arrow-right ml-2"></i>
                         </button>
                     </div>
 
-                    <!-- Step 2: Face Registration -->
+                    <!-- Step 2: Face -->
                     <div id="step2" class="hidden">
-                        <h3 class="text-xl font-bold text-gray-800 mb-6">
-                            <span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm mr-2">Step 2</span>
-                            Registrasi Wajah
-                        </h3>
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Registrasi Wajah</h3>
 
-                        <div class="bg-gray-900 rounded-lg overflow-hidden mb-4 relative" style="height: 480px;">
+                        <div class="bg-gray-900 rounded overflow-hidden mb-4 relative" style="height: 400px;">
                             <video id="video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
                             <canvas id="canvas" style="display: none;"></canvas>
                             
-                            <!-- Face Detection Indicator -->
                             <div id="faceIndicator" class="absolute bottom-4 left-4 right-4 hidden">
-                                <div class="bg-green-500 text-white px-4 py-2 rounded-lg text-center font-semibold">
-                                    <i class="fas fa-check-circle mr-2"></i>Wajah Terdeteksi!
+                                <div class="bg-green-500 text-white px-4 py-2 rounded text-center font-semibold text-sm">
+                                    <i class="fas fa-check-circle mr-2"></i>Wajah Terdeteksi
                                 </div>
                             </div>
 
-                            <div id="noFaceIndicator" class="absolute bottom-4 left-4 right-4 hidden">
-                                <div class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-center font-semibold">
-                                    <i class="fas fa-exclamation-triangle mr-2"></i>Posisikan wajah Anda
-                                </div>
-                            </div>
-
-                            <!-- Loading Indicator -->
                             <div id="loadingModels" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                                 <div class="text-center text-white">
-                                    <i class="fas fa-spinner fa-spin text-4xl mb-3"></i>
-                                    <p>Loading face detection models...</p>
+                                    <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                                    <p class="text-sm">Loading...</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                            <p class="text-sm text-blue-800">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                <strong>Instruksi:</strong>
-                            </p>
-                            <ul class="text-sm text-blue-800 mt-2 space-y-1 ml-6 list-disc">
-                                <li>Pastikan wajah Anda terlihat jelas</li>
-                                <li>Pencahayaan harus cukup terang</li>
-                                <li>Jangan gunakan masker atau kacamata hitam</li>
-                                <li>Tunggu hingga wajah terdeteksi (indikator hijau)</li>
+                        <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
+                            <p class="text-blue-800"><strong>Instruksi:</strong></p>
+                            <ul class="text-blue-800 mt-1 ml-4 list-disc">
+                                <li>Wajah menghadap kamera</li>
+                                <li>Pencahayaan cukup terang</li>
+                                <li>Tidak pakai masker/kacamata</li>
                             </ul>
                         </div>
 
                         <input type="hidden" name="face_descriptor" id="faceDescriptor">
 
-                        <div class="flex space-x-3">
+                        <div class="flex gap-3 mb-3">
                             <button type="button" onclick="goToStep1()" 
-                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition">
+                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded transition">
                                 <i class="fas fa-arrow-left mr-2"></i>Kembali
                             </button>
 
                             <button type="button" id="captureFaceBtn" onclick="captureFace()" disabled
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed">
-                                <i class="fas fa-camera mr-2"></i>Capture Wajah
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded transition disabled:bg-gray-300">
+                                <i class="fas fa-camera mr-2"></i>Capture
                             </button>
                         </div>
 
                         <button type="submit" id="submitBtn" disabled
-                            class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed">
-                            <i class="fas fa-check mr-2"></i>Daftar Sekarang
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition disabled:bg-gray-300">
+                            <i class="fas fa-check mr-2"></i>Daftar
                         </button>
                     </div>
                 </form>
 
-                <div class="mt-6 text-center">
+                <div class="mt-4 text-center text-sm">
                     <p class="text-gray-600">Sudah punya akun?</p>
                     <a href="{{ route('login') }}" class="text-blue-600 hover:text-blue-700 font-semibold">
                         Login <i class="fas fa-arrow-right ml-1"></i>
@@ -205,15 +183,14 @@
                 ]);
                 modelsLoaded = true;
                 document.getElementById('loadingModels').classList.add('hidden');
-                console.log('Face detection models loaded successfully');
+                console.log('Models loaded');
             } catch (error) {
                 console.error('Error loading models:', error);
-                alert('Gagal memuat model deteksi wajah. Silakan refresh halaman.');
+                alert('Gagal memuat model. Refresh halaman.');
             }
         }
 
         function goToStep1() {
-            // Stop camera
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
@@ -228,12 +205,12 @@
         }
 
         async function goToStep2() {
-            // Validate step 1
+            // Validate
             const form = document.getElementById('registerForm');
-            const step1Inputs = form.querySelectorAll('#step1 [required]');
+            const inputs = form.querySelectorAll('#step1 [required]');
             let valid = true;
             
-            step1Inputs.forEach(input => {
+            inputs.forEach(input => {
                 if (!input.value) {
                     valid = false;
                     input.classList.add('border-red-500');
@@ -242,45 +219,36 @@
                 }
             });
 
-            // Check password match
             const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('password_confirmation').value;
+            const confirmPassword = document.querySelector('[name="password_confirmation"]').value;
             
             if (password !== confirmPassword) {
-                alert('Password dan konfirmasi password tidak cocok!');
+                alert('Password tidak cocok!');
                 return;
             }
 
             if (!valid) {
-                alert('Mohon lengkapi semua field yang wajib diisi!');
+                alert('Lengkapi semua field!');
                 return;
             }
 
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.remove('hidden');
 
-            // Load models if not loaded
             if (!modelsLoaded) {
                 await loadModels();
             }
 
-            // Start camera
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'user',
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    } 
+                    video: { facingMode: 'user', width: 640, height: 480 } 
                 });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
-                
-                // Start face detection loop
+                document.getElementById('video').srcObject = stream;
                 startFaceDetection();
             } catch (err) {
                 console.error('Camera error:', err);
-                alert('Tidak dapat mengakses kamera. Pastikan Anda memberikan izin kamera.');
+                alert('Tidak bisa akses kamera. Izinkan kamera di browser.');
+                goToStep1();
             }
         }
 
@@ -288,7 +256,6 @@
             const video = document.getElementById('video');
             const captureBtn = document.getElementById('captureFaceBtn');
             const faceIndicator = document.getElementById('faceIndicator');
-            const noFaceIndicator = document.getElementById('noFaceIndicator');
 
             detectionInterval = setInterval(async () => {
                 if (!modelsLoaded) return;
@@ -301,11 +268,9 @@
 
                     if (detection) {
                         faceIndicator.classList.remove('hidden');
-                        noFaceIndicator.classList.add('hidden');
                         captureBtn.disabled = false;
                     } else {
                         faceIndicator.classList.add('hidden');
-                        noFaceIndicator.classList.remove('hidden');
                         captureBtn.disabled = true;
                     }
                 } catch (error) {
@@ -319,7 +284,7 @@
             const btn = document.getElementById('captureFaceBtn');
             
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Proses...';
 
             try {
                 const detection = await faceapi.detectSingleFace(
@@ -328,9 +293,9 @@
                 ).withFaceLandmarks().withFaceDescriptor();
 
                 if (!detection) {
-                    alert('Wajah tidak terdeteksi. Silakan coba lagi.');
+                    alert('Wajah tidak terdeteksi. Coba lagi.');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture Wajah';
+                    btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture';
                     return;
                 }
 
@@ -338,29 +303,22 @@
                 document.getElementById('faceDescriptor').value = JSON.stringify(faceDescriptor);
                 document.getElementById('submitBtn').disabled = false;
 
-                // Stop detection interval
                 if (detectionInterval) {
                     clearInterval(detectionInterval);
                 }
 
-                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Wajah Berhasil Diambil!';
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Berhasil!';
                 btn.classList.remove('bg-green-600', 'hover:bg-green-700');
                 btn.classList.add('bg-green-500');
 
-                alert('Wajah berhasil didaftarkan! Klik "Daftar Sekarang" untuk menyelesaikan registrasi.');
+                alert('Wajah berhasil! Klik Daftar untuk selesai.');
             } catch (error) {
                 console.error('Capture error:', error);
-                alert('Terjadi kesalahan. Silakan coba lagi.');
+                alert('Error. Coba lagi.');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture Wajah';
+                btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture';
             }
         }
-
-        // Load models when page loads
-        window.addEventListener('load', () => {
-            // Preload models in background
-            setTimeout(loadModels, 1000);
-        });
     </script>
 </body>
 </html>

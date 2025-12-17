@@ -13,38 +13,38 @@ class DatabaseSeeder extends Seeder
     {
         // Create Admin User
         User::create([
-            'username' => 'admin',
+            'username' => 'gurusija',
             'name' => 'Administrator',
-            'email' => 'admin@sekolah.sch.id',
-            'password' => Hash::make('admin123'),
+            'email' => 'gurusija@gmail.com',
+            'password' => Hash::make(env('ADMIN_PASSWORD', 'sijamabar')),
             'role' => 'admin',
             'status' => 'approved',
         ]);
 
-        // Create Sample Students (Optional)
-        User::create([
-            'nisn' => '0012345678',
-            'username' => 'siswa001',
-            'name' => 'Budi Santoso',
-            'email' => 'budi@student.sch.id',
-            'password' => Hash::make('password123'),
-            'role' => 'student',
-            'class' => '10 DKV 1',
-            'phone' => '081234567890',
-            'status' => 'approved',
-        ]);
+        // // Create Sample Students (Optional)
+        // User::create([
+        //     'nisn' => '0012345678',
+        //     'username' => 'siswa001',
+        //     'name' => 'Budi Santoso',
+        //     'email' => 'budi@student.sch.id',
+        //     'password' => Hash::make('password123'),
+        //     'role' => 'student',
+        //     'class' => '10 DKV 1',
+        //     'phone' => '081234567890',
+        //     'status' => 'approved',
+        // ]);
 
-        User::create([
-            'nisn' => '0012345679',
-            'username' => 'siswa002',
-            'name' => 'Siti Aminah',
-            'email' => 'siti@student.sch.id',
-            'password' => Hash::make('password123'),
-            'role' => 'student',
-            'class' => '11 SIJA 2',
-            'phone' => '081234567891',
-            'status' => 'approved',
-        ]);
+        // User::create([
+        //     'nisn' => '0012345679',
+        //     'username' => 'siswa002',
+        //     'name' => 'Siti Aminah',
+        //     'email' => 'siti@student.sch.id',
+        //     'password' => Hash::make('password123'),
+        //     'role' => 'student',
+        //     'class' => '11 SIJA 2',
+        //     'phone' => '081234567891',
+        //     'status' => 'approved',
+        // ]);
 
         // Settings
         $settings = [
