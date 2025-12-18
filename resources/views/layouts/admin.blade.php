@@ -61,12 +61,13 @@
                     <i class="fas fa-cog mr-3"></i>Pengaturan
                 </a>
 
-                <form method="POST" action="{{ route('logout') }}" class="mt-8">
+                <form method="POST" action="{{ route('logout') }}" class="mt-8" id ="logoutForm">
                     @csrf
-                    <button type="submit" 
+                    <button type="submit" onclick="confirmLogout()" 
                         class="w-full flex items-center px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 transition">
                         <i class="fas fa-sign-out-alt mr-3"></i>Logout
                     </button>
+                    
                 </form>
             </nav>
         </aside>
@@ -97,5 +98,18 @@
     </div>
 
     @stack('scripts')
+
+
 </body>
+
+@push('scripts')
+<script>
+
+function confirmLogout() {
+    if (confirm('Yakin ingin logout?')) {
+        document.getElementById('logoutForm').submit();
+    }
+}
+</script>
+@endpush
 </html>

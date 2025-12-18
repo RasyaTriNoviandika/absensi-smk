@@ -17,10 +17,13 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <i class="fas fa-graduation-cap text-2xl text-blue-600 mr-3"></i>
+                   <img 
+                    src="{{ asset('img/logo.png') }}"
+                    class="w-9 h-9 mr-3 object-contain"
+                        >
                     <div>
-                        <h1 class="text-lg font-bold text-gray-800">Absensi SMK</h1>
-                        <p class="text-xs text-gray-500">Face Recognition</p>
+                        <h1 class="text-lg font-bold text-gray-800">NineFace</h1>
+                        {{-- <p class="text-xs text-gray-500">Face Recognition</p> --}}
                     </div>
                 </div>
 

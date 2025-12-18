@@ -27,7 +27,9 @@
         <div class="max-w-5xl mx-auto px-4 sm:px-6">
             <div class="flex justify-between items-center h-14">
                 <div class="flex items-center space-x-2">
-                    <i class="fas fa-graduation-cap text-2xl text-blue-600"></i>
+                   <img 
+                    src="{{ asset('img/logo.png') }}"
+                    class="w-9 h-9 mr-3 object-contain" >
                     <span class="font-semibold text-gray-800">Absensi SMK</span>
                 </div>
                 <div class="flex space-x-2">

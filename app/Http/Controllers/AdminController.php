@@ -20,45 +20,48 @@ class AdminController extends Controller
     }
 
     public function dashboard()
-{
-    $date = today()->format('Y-m-d');
-    $classes = $this->getAvailableClasses();
-    $monitoringData = [];
-    
-    // Optimize queries dengan select only needed columns
-    $totalStudents = User::students()->approved()->count();
-    $todayAttendances = Attendance::today()
-        ->select('status')
-        ->get();
-    
-    $stats = [
-        'total_students' => $totalStudents,
-        'present_today' => $todayAttendances->where('status', 'hadir')->count(),
-        'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
-        'alpha_today' => $totalStudents - $todayAttendances->count(),
-        'pending_approval' => User::students()->pending()->count(),
-    ];
-
-    // Weekly chart data - ambil hanya yang diperlukan
-    $weeklyData = [];
-    for ($i = 6; $i >= 0; $i--) {
-        $date = today()->subDays($i);
-        $count = Attendance::whereDate('date', $date)->count();
+    {
+        $date = today()->format('Y-m-d');
+        $classes = $this->getAvailableClasses();
         
-        $weeklyData[] = [
-            'date' => $date->format('d M'),
-            'count' => $count
+        // Optimize queries
+        $totalStudents = User::students()->approved()->count();
+        $todayAttendances = Attendance::today()
+            ->select('status')
+            ->get();
+        
+        $stats = [
+            'total_students' => $totalStudents,
+            'present_today' => $todayAttendances->where('status', 'hadir')->count(),
+            'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
+            'alpha_today' => $totalStudents - $todayAttendances->count(),
+            'pending_approval' => User::students()->pending()->count(),
         ];
-    }
 
-    // Recent attendances - limit dan select columns
-    $recentAttendances = Attendance::with('user:id,name,nisn,class')
-        ->select('id', 'user_id', 'status', 'created_at')
-        ->latest()
-        ->limit(10)
-        ->get();
+        // Weekly chart data
+        $weeklyData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = today()->subDays($i);
+            $count = Attendance::whereDate('date', $date)->count();
+            
+            $weeklyData[] = [
+                'date' => $date->format('d M'),
+                'count' => $count
+            ];
+        }
 
-    return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances' , 'date' , 'classes','monitoringData'));
+        // Recent attendances
+        $recentAttendances = Attendance::with('user:id,name,nisn,class')
+            ->select('id', 'user_id', 'status', 'created_at')
+            ->latest()
+            ->limit(10)
+            ->get();
+
+        // Reset date for view
+        $date = today()->format('Y-m-d');
+        $monitoringData = collect(); // Empty collection for dashboard
+
+        return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances', 'date', 'classes', 'monitoringData'));
     }
 
     public function approvals()
@@ -97,12 +100,10 @@ class AdminController extends Controller
     {
         $query = User::students()->approved();
 
-        // Filter by class
         if ($request->filled('class')) {
             $query->where('class', $request->class);
         }
 
-        // Search by name or NISN
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -151,7 +152,6 @@ class AdminController extends Controller
 
     public function resetPassword(User $user)
     {
-
         if ($user->role !== 'student') {
             abort(403);
         }
@@ -183,7 +183,7 @@ class AdminController extends Controller
             ->keyBy('user_id');
 
         // Build monitoring data
-        $monitoringData = $students->map(function($student) use ($attendances, $date) {
+        $monitoringData = $students->map(function($student) use ($attendances) {
             $attendance = $attendances->get($student->id);
             
             return [
@@ -211,30 +211,25 @@ class AdminController extends Controller
     {
         $query = Attendance::with('user');
 
-        // Filter by date range
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('date', [$request->start_date, $request->end_date]);
         } elseif ($request->filled('date')) {
             $query->whereDate('date', $request->date);
         } else {
-            // Default: current month
             $query->whereMonth('date', now()->month)
                   ->whereYear('date', now()->year);
         }
 
-        // Filter by class
         if ($request->filled('class')) {
             $query->whereHas('user', function($q) use ($request) {
                 $q->where('class', $request->class);
             });
         }
 
-        // Filter by student
         if ($request->filled('student_id')) {
             $query->where('user_id', $request->student_id);
         }
 
-        // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
@@ -300,7 +295,6 @@ class AdminController extends Controller
     {
         $query = Attendance::with('user');
 
-        // Apply same filters as history
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('date', [$request->start_date, $request->end_date]);
         }
@@ -337,24 +331,6 @@ class AdminController extends Controller
         }
 
         return back()->with('success', 'Pengaturan berhasil diupdate.');
-    }
-
-    // Helper methods
-    private function getWeeklyAttendanceData()
-    {
-        $data = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = today()->subDays($i);
-            $attendances = Attendance::whereDate('date', $date)->get();
-            
-            $data[] = [
-                'date' => $date->format('d M'),
-                'hadir' => $attendances->where('status', 'hadir')->count(),
-                'terlambat' => $attendances->where('status', 'terlambat')->count(),
-                'alpha' => User::students()->approved()->count() - $attendances->count(),
-            ];
-        }
-        return $data;
     }
 
     private function getAvailableClasses()

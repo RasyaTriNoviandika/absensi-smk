@@ -235,10 +235,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
-// KOORDINAT SEKOLAH - GANTI DENGAN KOORDINAT SEKOLAH ANDA
-const SCHOOL_LAT = -6.2706589; // Contoh: latitude sekolah
-const SCHOOL_LNG = 106.9593685; // Contoh: longitude sekolah
-const MAX_DISTANCE = 100; // Radius dalam meter
+// KOORDINAT SEKOLAH
+const SCHOOL_LAT = -6.2706589; 
+const SCHOOL_LNG = 106.9593685; 
+const MAX_DISTANCE = 50000; // Radius dalam meter
 
 let modelsLoaded = false;
 let stream = null;

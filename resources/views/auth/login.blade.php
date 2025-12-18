@@ -12,7 +12,9 @@
         <div class="max-w-md w-full">
             <!-- Logo -->
             <div class="text-center mb-8">
-                <i class="fas fa-graduation-cap text-5xl text-blue-600 mb-3"></i>
+                   <img
+                    src="{{ asset('img/logo.png') }}"
+                    class="mx-auto w-16 h-16 obkect-contain mb-3">
                 <h2 class="text-2xl font-bold text-gray-800">Login Sistem Absensi</h2>
                 <p class="text-gray-600 mt-1">Masukkan username dan password</p>
             </div>
