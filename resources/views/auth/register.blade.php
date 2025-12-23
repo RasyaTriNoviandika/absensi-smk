@@ -60,15 +60,31 @@
                                     class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     <option value="">Pilih Kelas</option>
                                     @foreach(['10 DKV 1', '10 DKV 2', '10 DKV 3', '11 DKV 1', '11 DKV 2', '11 DKV 3', '12 DKV 1', '12 DKV 2', '12 DKV 3', '10 SIJA 1', '10 SIJA 2', '10 SIJA 3', '11 SIJA 1', '11 SIJA 2', '11 SIJA 3', '12 SIJA 1', '12 SIJA 2', '12 SIJA 3', '10 PB 1', '10 PB 2', '10 PB 3', '11 PB 1', '11 PB 2', '11 PB 3', '12 PB 1', '12 PB 2', '12 PB 3'] as $class)
-                                        <option value="{{ $class }}">{{ $class }}</option>
+                                        <option value="{{ $class }}" {{ old('class') == $class ? 'selected' : '' }}>{{ $class }}</option>
                                     @endforeach
                                 </select>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">No. HP</label>
-                                <input type="tel" name="phone" value="{{ old('phone') }}"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <input 
+                                    type="tel" 
+                                    name="phone" 
+                                    id="phone" 
+                                    pattern="[0-9+]*" 
+                                    inputmode="numeric" 
+                                    value="{{ old('phone') }}" 
+                                    minlength="10" 
+                                    maxlength="15" 
+                                    placeholder="08xxxxxxxxxx"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('phone') border-red-500 @enderror">
+                                @error('phone')
+                                    <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                                @else
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Format: 08xxx / 628xxx / +628xxx (10-15 digit)
+                                    </p>
+                                @enderror
                             </div>
                         </div>
 
@@ -121,7 +137,7 @@
                             <div id="loadingModels" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                                 <div class="text-center text-white">
                                     <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
-                                    <p class="text-sm">Loading...</p>
+                                    <p class="text-sm">Loading model AI...</p>
                                 </div>
                             </div>
                         </div>
@@ -173,22 +189,120 @@
         let detectionInterval = null;
         let stream = null;
 
+        // VALIDASI PHONE NUMBER REAL-TIME
+        document.addEventListener('DOMContentLoaded', function() {
+            const phoneInput = document.getElementById('phone');
+            
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    this.value = this.value.replace(/[^0-9+]/g, '');
+                    if (this.value.indexOf('+') > 0) {
+                        this.value = this.value.replace(/\+/g, '');
+                    }
+                    validatePhoneNumber(this);
+                });
+                
+                phoneInput.addEventListener('blur', function(e) {
+                    validatePhoneNumber(this);
+                });
+            }
+        });
+
+        function validatePhoneNumber(input) {
+            const value = input.value.trim();
+            
+            // Jika kosong, tidak perlu validasi
+            if (value === '') {
+                input.classList.remove('border-red-500', 'border-green-500');
+                removePhoneError();
+                return true;
+            }
+            
+            // Jika sedang mengetik awalan yang benar (08, 62, +62), jangan tampilkan error
+            if (value === '0' || value === '08' || 
+                value === '6' || value === '62' || 
+                value === '+' || value === '+6' || value === '+62') {
+                input.classList.remove('border-red-500', 'border-green-500');
+                removePhoneError();
+                return true;
+            }
+            
+            // Validasi format lengkap
+            const phoneRegex = /^(\+62|62|0)8[0-9]{8,13}$/;
+            
+            // Cek apakah awalan benar
+            if (!value.startsWith('08') && !value.startsWith('62') && !value.startsWith('+62')) {
+                input.classList.add('border-red-500');
+                input.classList.remove('border-green-500');
+                showPhoneError('Nomor harus diawali 08, atau 62');
+                return false;
+            }
+            
+            // Jika sudah mencapai panjang minimal, validasi lengkap
+            if (value.length >= 10) {
+                if (!phoneRegex.test(value)) {
+                    input.classList.add('border-red-500');
+                    input.classList.remove('border-green-500');
+                    showPhoneError('Format nomor HP tidak valid');
+                    return false;
+                }
+                
+                if (value.length > 15) {
+                    input.classList.add('border-red-500');
+                    input.classList.remove('border-green-500');
+                    showPhoneError('Nomor HP maksimal 15 digit');
+                    return false;
+                }
+                
+                // Valid!
+                input.classList.remove('border-red-500');
+                input.classList.add('border-green-500');
+                removePhoneError();
+                return true;
+            }
+            
+            // Masih dalam proses mengetik (kurang dari 10 digit tapi awalan benar)
+            input.classList.remove('border-red-500', 'border-green-500');
+            removePhoneError();
+            return true;
+        }
+
+        function showPhoneError(message) {
+            removePhoneError();
+            const phoneInput = document.getElementById('phone');
+            const errorDiv = document.createElement('p');
+            errorDiv.className = 'text-sm text-red-600 mt-1 phone-error';
+            errorDiv.textContent = message;
+            phoneInput.parentNode.appendChild(errorDiv);
+        }
+
+        function removePhoneError() {
+            const existingError = document.querySelector('.phone-error');
+            if (existingError) existingError.remove();
+        }
+
+        // LOAD MODELS
         async function loadModels() {
             try {
                 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                console.log('Loading face recognition models...');
+                
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                     faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
                 ]);
+                
                 modelsLoaded = true;
                 document.getElementById('loadingModels').classList.add('hidden');
-                console.log('Models loaded');
+                console.log('Models loaded successfully');
             } catch (error) {
                 console.error('Error loading models:', error);
-                alert('Gagal memuat model. Refresh halaman.');
+                alert('Gagal memuat model AI. Refresh halaman dan pastikan koneksi internet stabil.');
             }
         }
+
+        loadModels();
 
         function goToStep1() {
             if (stream) {
@@ -205,13 +319,12 @@
         }
 
         async function goToStep2() {
-            // Validate
             const form = document.getElementById('registerForm');
             const inputs = form.querySelectorAll('#step1 [required]');
             let valid = true;
             
             inputs.forEach(input => {
-                if (!input.value) {
+                if (!input.value.trim()) {
                     valid = false;
                     input.classList.add('border-red-500');
                 } else {
@@ -219,16 +332,29 @@
                 }
             });
 
+            const phoneInput = document.getElementById('phone');
+            if (phoneInput && phoneInput.value.trim() !== '') {
+                if (!validatePhoneNumber(phoneInput)) {
+                    alert('Format nomor HP tidak valid!');
+                    return;
+                }
+            }
+
             const password = document.getElementById('password').value;
             const confirmPassword = document.querySelector('[name="password_confirmation"]').value;
             
             if (password !== confirmPassword) {
-                alert('Password tidak cocok!');
+                alert('Password dan konfirmasi password tidak cocok!');
+                return;
+            }
+
+            if (password.length < 8) {
+                alert('Password minimal 8 karakter!');
                 return;
             }
 
             if (!valid) {
-                alert('Lengkapi semua field!');
+                alert('Mohon lengkapi semua field yang wajib diisi!');
                 return;
             }
 
@@ -236,21 +362,45 @@
             document.getElementById('step2').classList.remove('hidden');
 
             if (!modelsLoaded) {
-                await loadModels();
+                document.getElementById('loadingModels').classList.remove('hidden');
+                let attempts = 0;
+                while (!modelsLoaded && attempts < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    attempts++;
+                }
+                if (!modelsLoaded) {
+                    alert('Model AI gagal dimuat. Refresh halaman.');
+                    goToStep1();
+                    return;
+                }
             }
 
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user', width: 640, height: 480 } 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
                 });
-                document.getElementById('video').srcObject = stream;
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                await new Promise(resolve => {
+                    video.onloadedmetadata = resolve;
+                });
+                
                 startFaceDetection();
             } catch (err) {
                 console.error('Camera error:', err);
-                alert('Tidak bisa akses kamera. Izinkan kamera di browser.');
+                alert('Tidak bisa akses kamera. Pastikan:\n1. Kamera tidak dipakai aplikasi lain\n2. Izin kamera sudah diberikan di browser');
                 goToStep1();
             }
         }
+
+        let lastDetectionTime = 0;
+        const DETECTION_INTERVAL = 500;
 
         function startFaceDetection() {
             const video = document.getElementById('video');
@@ -258,12 +408,16 @@
             const faceIndicator = document.getElementById('faceIndicator');
 
             detectionInterval = setInterval(async () => {
-                if (!modelsLoaded) return;
+                const now = Date.now();
+                if (now - lastDetectionTime < DETECTION_INTERVAL) return;
+                lastDetectionTime = now;
+
+                if (!modelsLoaded || video.readyState !== 4) return;
 
                 try {
                     const detection = await faceapi.detectSingleFace(
                         video,
-                        new faceapi.TinyFaceDetectorOptions()
+                        new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
                     ).withFaceLandmarks().withFaceDescriptor();
 
                     if (detection) {
@@ -276,7 +430,7 @@
                 } catch (error) {
                     console.error('Detection error:', error);
                 }
-            }, 500);
+            }, DETECTION_INTERVAL);
         }
 
         async function captureFace() {
@@ -284,16 +438,16 @@
             const btn = document.getElementById('captureFaceBtn');
             
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Proses...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
 
             try {
                 const detection = await faceapi.detectSingleFace(
                     video,
-                    new faceapi.TinyFaceDetectorOptions()
+                    new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
                 ).withFaceLandmarks().withFaceDescriptor();
 
                 if (!detection) {
-                    alert('Wajah tidak terdeteksi. Coba lagi.');
+                    alert('Wajah tidak terdeteksi!\n\nPastikan:\n- Wajah menghadap kamera\n- Pencahayaan cukup terang\n- Tidak pakai masker/kacamata');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture';
                     return;
@@ -305,20 +459,29 @@
 
                 if (detectionInterval) {
                     clearInterval(detectionInterval);
+                    detectionInterval = null;
                 }
 
-                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Berhasil!';
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Wajah Terekam!';
                 btn.classList.remove('bg-green-600', 'hover:bg-green-700');
                 btn.classList.add('bg-green-500');
 
-                alert('Wajah berhasil! Klik Daftar untuk selesai.');
+                alert('✅ Wajah berhasil direkam!\n\nSekarang klik tombol "Daftar" untuk menyelesaikan registrasi.');
             } catch (error) {
                 console.error('Capture error:', error);
-                alert('Error. Coba lagi.');
+                alert('Terjadi kesalahan saat merekam wajah. Coba lagi.');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture';
             }
         }
+
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            if (!faceDescriptor) {
+                e.preventDefault();
+                alert('Anda harus merekam wajah terlebih dahulu!');
+                return false;
+            }
+        });
     </script>
 </body>
 </html>

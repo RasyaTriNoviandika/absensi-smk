@@ -20,49 +20,64 @@ class AdminController extends Controller
     }
 
     public function dashboard()
-    {
-        $date = today()->format('Y-m-d');
-        $classes = $this->getAvailableClasses();
-        
-        // Optimize queries
-        $totalStudents = User::students()->approved()->count();
-        $todayAttendances = Attendance::today()
-            ->select('status')
-            ->get();
-        
-        $stats = [
-            'total_students' => $totalStudents,
-            'present_today' => $todayAttendances->where('status', 'hadir')->count(),
-            'late_today' => $todayAttendances->where('status', 'terlambat')->count(),
-            'alpha_today' => $totalStudents - $todayAttendances->count(),
-            'pending_approval' => User::students()->pending()->count(),
+{
+    $date = today()->format('Y-m-d');
+    $classes = $this->getAvailableClasses();
+
+    $totalStudents = User::where('role', 'student')
+        ->where('status', 'approved')
+        ->count();
+
+    $todayStats = Attendance::whereDate('date', today())
+        ->selectRaw('status, COUNT(*) as count')
+        ->groupBy('status')
+        ->pluck('count', 'status');
+
+    $stats = [
+        'total_students' => $totalStudents,
+        'present_today' => $todayStats->get('hadir', 0),
+        'late_today' => $todayStats->get('terlambat', 0),
+        'alpha_today' => $totalStudents - $todayStats->sum(),
+        'pending_approval' => User::where('role', 'student')
+            ->where('status', 'pending')
+            ->count(),
+    ];
+
+    $weeklyDataRaw = Attendance::selectRaw('DATE(date) as date, COUNT(*) as count')
+        ->where('date', '>=', today()->subDays(6))
+        ->groupBy('date')
+        ->orderBy('date')
+        ->get()
+        ->keyBy('date');
+
+    $weeklyData = [];
+    for ($i = 6; $i >= 0; $i--) {
+        $d = today()->subDays($i);
+        $key = $d->format('Y-m-d');
+
+        $weeklyData[] = [
+            'date' => $d->format('d M'),
+            'count' => $weeklyDataRaw->get($key)->count ?? 0
         ];
-
-        // Weekly chart data
-        $weeklyData = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = today()->subDays($i);
-            $count = Attendance::whereDate('date', $date)->count();
-            
-            $weeklyData[] = [
-                'date' => $date->format('d M'),
-                'count' => $count
-            ];
-        }
-
-        // Recent attendances
-        $recentAttendances = Attendance::with('user:id,name,nisn,class')
-            ->select('id', 'user_id', 'status', 'created_at')
-            ->latest()
-            ->limit(10)
-            ->get();
-
-        // Reset date for view
-        $date = today()->format('Y-m-d');
-        $monitoringData = collect(); // Empty collection for dashboard
-
-        return view('admin.dashboard', compact('stats', 'weeklyData', 'recentAttendances', 'date', 'classes', 'monitoringData'));
     }
+
+    $recentAttendances = Attendance::with(['user:id,name,nisn,class'])
+        ->select('id', 'user_id', 'status', 'created_at')
+        ->latest()
+        ->limit(10)
+        ->get();
+
+    $monitoringData = collect();
+
+    return view('admin.dashboard', compact(
+        'stats',
+        'weeklyData',
+        'recentAttendances',
+        'date',
+        'classes',
+        'monitoringData'
+    ));
+}
 
     public function approvals()
     {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Absensi - SMK</title>
+    <title>Absensi</title>
     @vite(['resources/css/app.css'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -54,7 +54,7 @@
                 Absensi dengan<br class="sm:hidden"> Pengenalan Wajah
             </h1>
             <p class="text-base sm:text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-                Sistem absensi modern untuk SMK. Scan wajah, absen tercatat otomatis.
+             Scan wajah, Absen tercatat otomatis.
             </p>
             <div class="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                 <a href="#panduan" class="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm sm:text-base transition-all hover-lift">
@@ -133,7 +133,7 @@
                     </div>
                     <div class="flex items-start">
                         <i class="fas fa-check text-blue-600 mr-3 mt-1 flex-shrink-0"></i>
-                        <span>Minimal absen pulang: <strong>14:00 WIB</strong></span>
+                        <span>Minimal absen pulang: <strong>16:00 WIB</strong></span>
                     </div>
                     <div class="flex items-start">
                         <i class="fas fa-check text-blue-600 mr-3 mt-1 flex-shrink-0"></i>
@@ -165,7 +165,7 @@
                         Apakah sistem ini gratis?
                     </summary>
                     <p class="mt-2 text-sm text-gray-600">
-                        Ya, sistem ini 100% gratis untuk seluruh siswa SMK.
+                        Ya, sistem ini 100% gratis untuk seluruh siswa SMKN 9 Kota Bekasi.
                     </p>
                 </details>
 
@@ -206,7 +206,7 @@
                 Siap Memulai?
             </h2>
             <p class="text-base sm:text-lg text-gray-600 mb-6">
-                Daftar sekarang dan rasakan kemudahan absensi digital
+                
             </p>
             <a href="{{ route('register') }}" class="inline-block px-8 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm sm:text-base transition-all hover-lift">
                 <i class="fas fa-user-plus mr-2"></i>Daftar Sekarang

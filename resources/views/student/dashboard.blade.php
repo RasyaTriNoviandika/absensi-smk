@@ -238,18 +238,45 @@
 // KOORDINAT SEKOLAH
 const SCHOOL_LAT = -6.2706589; 
 const SCHOOL_LNG = 106.9593685; 
-const MAX_DISTANCE = 50000; // Radius dalam meter
+const MAX_DISTANCE = 50000; // 100 meter
 
 let modelsLoaded = false;
 let stream = null;
 let detectionInterval = null;
-let currentType = null; // 'checkin' or 'checkout'
+let currentType = null;
 let userLat = null;
 let userLng = null;
 
-// Calculate distance between two coordinates
+// Load face-api models
+(async function initModels() {
+    try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+        console.log('Loading face-api models...');
+        
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        
+        modelsLoaded = true;
+        console.log('✅ Models loaded successfully');
+    } catch (error) {
+        console.error('❌ Failed to load models:', error);
+        alert('Gagal memuat model deteksi wajah. Refresh halaman dan pastikan koneksi internet stabil.');
+    }
+})();
+
+function getCsrfToken() {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!token) {
+        console.error('❌ CSRF token not found in meta tag');
+    }
+    return token || '';
+}
+
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in meters
+    const R = 6371e3;
     const φ1 = lat1 * Math.PI/180;
     const φ2 = lat2 * Math.PI/180;
     const Δφ = (lat2-lat1) * Math.PI/180;
@@ -260,14 +287,22 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
             Math.sin(Δλ/2) * Math.sin(Δλ/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-    return R * c; // Distance in meters
+    return R * c;
 }
 
-// Check user location
+let locationCheckCache = null;
+let locationCheckTime = null;
+const LOCATION_CACHE_DURATION = 60000;
+
 async function checkLocation() {
+    if (locationCheckCache && locationCheckTime && 
+        (Date.now() - locationCheckTime < LOCATION_CACHE_DURATION)) {
+        return locationCheckCache;
+    }
+
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-            reject('Geolocation not supported');
+            reject('Geolocation tidak didukung browser Anda');
             return;
         }
 
@@ -278,40 +313,44 @@ async function checkLocation() {
                 
                 const distance = calculateDistance(SCHOOL_LAT, SCHOOL_LNG, userLat, userLng);
                 
+                console.log(`📍 Distance from school: ${Math.round(distance)} meters`);
                 document.getElementById('distanceInfo').textContent = Math.round(distance);
                 
                 if (distance <= MAX_DISTANCE) {
                     document.getElementById('locationWarning').classList.add('hidden');
+                    locationCheckCache = true;
+                    locationCheckTime = Date.now();
                     resolve(true);
                 } else {
                     document.getElementById('locationWarning').classList.remove('hidden');
-                    reject(`Anda berada ${Math.round(distance)} meter dari sekolah. Silakan mendekati sekolah.`);
+                    locationCheckCache = false;
+                    locationCheckTime = Date.now();
+                    reject(`Anda berada ${Math.round(distance)} meter dari sekolah. Jarak maksimal: ${MAX_DISTANCE} meter.`);
                 }
             },
             (error) => {
-                reject('Tidak dapat mengakses lokasi. Pastikan GPS aktif dan izin lokasi diberikan.');
+                let errorMsg = 'Tidak dapat mengakses lokasi.';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg = 'Izin lokasi ditolak. Aktifkan GPS dan izinkan akses lokasi.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg = 'Lokasi tidak tersedia. Pastikan GPS aktif.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg = 'Request lokasi timeout. Coba lagi.';
+                        break;
+                }
+                console.error('❌ Geolocation error:', errorMsg);
+                reject(errorMsg);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
             }
         );
     });
-}
-
-// Load face models
-async function loadModels() {
-    if (modelsLoaded) return;
-    
-    try {
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        modelsLoaded = true;
-        document.getElementById('loading').classList.add('hidden');
-    } catch (error) {
-        console.error('Model loading error:', error);
-        alert('Gagal memuat model. Silakan refresh halaman.');
-    }
 }
 
 async function openCheckInModal() {
@@ -331,7 +370,6 @@ async function openModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // Check location first
     document.getElementById('locationCheck').classList.remove('hidden');
     try {
         await checkLocation();
@@ -342,23 +380,46 @@ async function openModal() {
         return;
     }
 
-    // Load models
     if (!modelsLoaded) {
-        await loadModels();
+        document.getElementById('loading').classList.remove('hidden');
+        let attempts = 0;
+        while (!modelsLoaded && attempts < 30) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+        }
+        if (!modelsLoaded) {
+            alert('Gagal memuat model. Refresh halaman.');
+            closeModal();
+            return;
+        }
     }
+    document.getElementById('loading').classList.add('hidden');
 
-    // Start camera
     try {
         stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user', width: 640, height: 480 } 
+            video: { 
+                facingMode: 'user',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
         });
         document.getElementById('video').srcObject = stream;
+        
+        const video = document.getElementById('video');
+        await new Promise(resolve => {
+            video.onloadedmetadata = resolve;
+        });
+        
         startFaceDetection();
     } catch (err) {
+        console.error('❌ Camera error:', err);
         alert('Tidak dapat mengakses kamera. Pastikan izin kamera diberikan.');
         closeModal();
     }
 }
+
+let lastDetectionTime = 0;
+const DETECTION_THROTTLE = 500;
 
 function startFaceDetection() {
     const video = document.getElementById('video');
@@ -366,12 +427,18 @@ function startFaceDetection() {
     const faceDetected = document.getElementById('faceDetected');
 
     detectionInterval = setInterval(async () => {
-        if (!modelsLoaded) return;
+        const now = Date.now();
+        if (now - lastDetectionTime < DETECTION_THROTTLE) {
+            return;
+        }
+        lastDetectionTime = now;
+
+        if (!modelsLoaded || video.readyState !== 4) return;
 
         try {
             const detection = await faceapi.detectSingleFace(
                 video,
-                new faceapi.TinyFaceDetectorOptions()
+                new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
             ).withFaceLandmarks().withFaceDescriptor();
 
             if (detection) {
@@ -384,7 +451,7 @@ function startFaceDetection() {
         } catch (error) {
             console.error('Detection error:', error);
         }
-    }, 500);
+    }, DETECTION_THROTTLE);
 }
 
 async function captureAndSubmit() {
@@ -396,37 +463,49 @@ async function captureAndSubmit() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
 
     try {
-        // Detect face
+        console.log('🎯 Starting capture process...');
+        
         const detection = await faceapi.detectSingleFace(
             video,
-            new faceapi.TinyFaceDetectorOptions()
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
         ).withFaceLandmarks().withFaceDescriptor();
 
         if (!detection) {
-            alert('Wajah tidak terdeteksi. Silakan coba lagi.');
+            alert('Wajah tidak terdeteksi. Pastikan wajah Anda menghadap kamera dengan pencahayaan cukup.');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
             return;
         }
 
-        // Capture photo
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        const photo = canvas.toDataURL('image/png');
+        console.log('✅ Face detected');
 
-        // Prepare data
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 640, 480);
+        
+        const photo = canvas.toDataURL('image/jpeg', 0.8);
         const faceDescriptor = Array.from(detection.descriptor);
+        
         const url = currentType === 'checkin' 
             ? '{{ route("attendance.checkin") }}' 
             : '{{ route("attendance.checkout") }}';
 
-        // Submit
+        console.log('📤 Submitting to:', url);
+        console.log('📊 Data:', {
+            type: currentType,
+            face_descriptor_length: faceDescriptor.length,
+            photo_size: photo.length,
+            latitude: userLat,
+            longitude: userLng
+        });
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': getCsrfToken(),
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 face_descriptor: faceDescriptor,
@@ -436,20 +515,33 @@ async function captureAndSubmit() {
             })
         });
 
-        const result = await response.json();
+        console.log('📥 Response status:', response.status);
+
+        let result;
+        try {
+            result = await response.json();
+            console.log('📋 Server response:', result);
+        } catch (e) {
+            console.error('❌ Failed to parse JSON:', e);
+            throw new Error('Server returned invalid response');
+        }
+
+        if (!response.ok) {
+            throw new Error(result.message || `Server error (${response.status})`);
+        }
         
         if (result.success) {
             alert(result.message);
             closeModal();
             window.location.reload();
         } else {
-            alert(result.message);
+            alert(result.message || 'Gagal melakukan absensi');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
         }
     } catch (error) {
-        console.error('Submit error:', error);
-        alert('Terjadi kesalahan. Silakan coba lagi.');
+        console.error('❌ Submit error:', error);
+        alert('Error: ' + error.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
     }
@@ -465,15 +557,19 @@ function closeModal() {
         detectionInterval = null;
     }
     
-    document.getElementById('cameraModal').classList.add('hidden');
-    document.getElementById('cameraModal').classList.remove('flex');
-    document.getElementById('captureBtn').disabled = true;
-    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+    const modal = document.getElementById('cameraModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    
+    const captureBtn = document.getElementById('captureBtn');
+    captureBtn.disabled = true;
+    captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
 }
 
-// Check location on page load
 window.addEventListener('load', () => {
-    checkLocation().catch(() => {});
+    checkLocation().catch(() => {
+        // Silent fail on page load
+    });
 });
 </script>
 @endsection

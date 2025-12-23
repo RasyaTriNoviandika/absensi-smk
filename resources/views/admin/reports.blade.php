@@ -9,6 +9,19 @@
         <p class="text-gray-600">Rekap kehadiran siswa per bulan</p>
     </div>
 
+     <div class="mt-4 flex space-x-2">
+            <a href="{{ route('admin.export.excel', request()->all()) }}" 
+               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                <i class="fas fa-file-excel mr-2"></i>Export Excel
+            </a>
+
+            <a href="{{ route('admin.export.pdf', request()->all()) }}" 
+               class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                <i class="fas fa-file-pdf mr-2"></i>Export PDF
+            </a>
+        </div>
+    </div>
+
     <!-- Filter -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <form method="GET" class="flex flex-wrap gap-4">
