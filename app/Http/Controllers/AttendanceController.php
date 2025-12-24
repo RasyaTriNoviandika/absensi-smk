@@ -182,7 +182,6 @@ public function checkOut(Request $request)
     ]);
 }
 
-// TAMBAHAN: Helper method untuk calculate distance
 private function calculateDistance($lat1, $lon1, $lat2, $lon2)
 {
     $R = 6371e3; // Earth radius in meters
@@ -211,5 +210,24 @@ private function saveBase64Image($base64String, $prefix)
     \Storage::disk('public')->put($path, base64_decode($image));
     
     return $path;
+}
+
+public function history(Request $request)
+{
+    $user = auth()->user();
+    
+    $query = $user->attendances();
+    
+    if ($request->filled('month') && $request->filled('year')) {
+        $query->whereMonth('date', $request->month)
+              ->whereYear('date', $request->year);
+    } else {
+        $query->whereMonth('date', now()->month)
+              ->whereYear('date', now()->year);
+    }
+    
+    $attendances = $query->orderBy('date', 'desc')->paginate(20);
+    
+    return view('student.history', compact('attendances'));
 }
 }

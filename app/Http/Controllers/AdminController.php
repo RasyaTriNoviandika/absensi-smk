@@ -14,10 +14,10 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class AdminController extends Controller
 {
 
-    public function __construct()
-    {
-        $this->middleware(['auth', 'admin']);
-    }
+    // public function __construct()
+    // {
+    //     $this->middleware(['auth', 'admin']);
+    // }
 
     public function dashboard()
 {
@@ -322,7 +322,7 @@ class AdminController extends Controller
 
         $attendances = $query->orderBy('date', 'desc')->get();
 
-        $pdf = Pdf::loadView('admin.exports.attendance-pdf', compact('attendances'));
+        $pdf = Pdf::loadView('admin.export.attendance-pdf', compact('attendances'));
         return $pdf->download('attendance_' . now()->format('Y-m-d') . '.pdf');
     }
 

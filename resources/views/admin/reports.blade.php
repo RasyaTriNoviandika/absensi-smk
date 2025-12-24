@@ -9,19 +9,6 @@
         <p class="text-gray-600">Rekap kehadiran siswa per bulan</p>
     </div>
 
-     <div class="mt-4 flex space-x-2">
-            <a href="{{ route('admin.export.excel', request()->all()) }}" 
-               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
-                <i class="fas fa-file-excel mr-2"></i>Export Excel
-            </a>
-
-            <a href="{{ route('admin.export.pdf', request()->all()) }}" 
-               class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
-                <i class="fas fa-file-pdf mr-2"></i>Export PDF
-            </a>
-        </div>
-    </div>
-
     <!-- Filter -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <form method="GET" class="flex flex-wrap gap-4">
@@ -63,6 +50,17 @@
                 </button>
             </div>
         </form>
+        
+        {{-- FIX: Pindahkan export buttons ke dalam form agar parameter filter ikut terkirim --}}
+        <div class="mt-4 flex space-x-2">
+            <button type="button" onclick="exportData('excel')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                <i class="fas fa-file-excel mr-2"></i>Export Excel
+            </button>
+
+            <button type="button" onclick="exportData('pdf')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                <i class="fas fa-file-pdf mr-2"></i>Export PDF
+            </button>
+        </div>
     </div>
 
     <!-- Report Table -->
@@ -128,4 +126,30 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function exportData(type) {
+    // Get current filter parameters
+    const month = document.querySelector('select[name="month"]').value;
+    const year = document.querySelector('select[name="year"]').value;
+    const classParam = document.querySelector('select[name="class"]').value;
+    
+    // Build URL with parameters
+    let url = type === 'excel' 
+        ? '{{ route("admin.export.excel") }}' 
+        : '{{ route("admin.export.pdf") }}';
+    
+    const params = new URLSearchParams();
+    params.append('month', month);
+    params.append('year', year);
+    if (classParam) {
+        params.append('class', classParam);
+    }
+    
+    // Redirect to export URL
+    window.location.href = url + '?' + params.toString();
+}
+</script>
+@endpush
 @endsection
