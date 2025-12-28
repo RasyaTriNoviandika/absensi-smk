@@ -30,9 +30,11 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    // FIXED: Added face_descriptor casting for better performance
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'face_descriptor' => 'array', // Auto decode/encode JSON
     ];
 
     // Relationships
@@ -83,14 +85,17 @@ class User extends Authenticatable
         return $this->status === 'approved';
     }
 
+    // FIXED: Simplified with casting
     public function getFaceDescriptor()
     {
-        return json_decode($this->face_descriptor, true);
+        // face_descriptor is already an array due to casting
+        return $this->face_descriptor;
     }
 
     public function setFaceDescriptor(array $descriptor)
     {
-        $this->face_descriptor = json_encode($descriptor);
+        // Will be automatically JSON encoded due to casting
+        $this->face_descriptor = $descriptor;
         $this->save();
     }
 

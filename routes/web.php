@@ -22,14 +22,14 @@ Route::middleware('guest')->group(function () {
 // Logout - only for authenticated users
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth' , 'student' , 'throttle:10,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.checkin');
     Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.checkout');
     Route::get('/attendance/history', [AttendanceController::class, 'history'])->name('attendance.history');
 });
 
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/approvals', [AdminController::class, 'approvals'])->name('approvals');
     Route::post('/approvals/{user}/approve', [AdminController::class, 'approve'])->name('approve');

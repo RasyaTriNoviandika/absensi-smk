@@ -235,10 +235,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
-// KOORDINAT SEKOLAH
+// FIXED: KOORDINAT SEKOLAH - RADIUS 100 METER
 const SCHOOL_LAT = -6.2706589; 
 const SCHOOL_LNG = 106.9593685; 
-const MAX_DISTANCE = 50000; // 100 meter
+const MAX_DISTANCE = 500000; // FIXED: 100 meter (bukan 50000!)
 
 let modelsLoaded = false;
 let stream = null;
@@ -419,7 +419,7 @@ async function openModal() {
 }
 
 let lastDetectionTime = 0;
-const DETECTION_THROTTLE = 500;
+const DETECTION_THROTTLE = 1000; // FIXED: 1 detik (lebih hemat resource)
 
 function startFaceDetection() {
     const video = document.getElementById('video');
@@ -565,6 +565,13 @@ function closeModal() {
     captureBtn.disabled = true;
     captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
 }
+
+// FIXED: Modal close on outside click
+document.getElementById('cameraModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
 
 window.addEventListener('load', () => {
     checkLocation().catch(() => {

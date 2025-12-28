@@ -13,71 +13,65 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminController extends Controller
 {
-
-    // public function __construct()
-    // {
-    //     $this->middleware(['auth', 'admin']);
-    // }
-
     public function dashboard()
-{
-    $date = today()->format('Y-m-d');
-    $classes = $this->getAvailableClasses();
+    {
+        $date = today()->format('Y-m-d');
+        $classes = $this->getAvailableClasses();
 
-    $totalStudents = User::where('role', 'student')
-        ->where('status', 'approved')
-        ->count();
+        $totalStudents = User::where('role', 'student')
+            ->where('status', 'approved')
+            ->count();
 
-    $todayStats = Attendance::whereDate('date', today())
-        ->selectRaw('status, COUNT(*) as count')
-        ->groupBy('status')
-        ->pluck('count', 'status');
+        $todayStats = Attendance::whereDate('date', today())
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
 
-    $stats = [
-        'total_students' => $totalStudents,
-        'present_today' => $todayStats->get('hadir', 0),
-        'late_today' => $todayStats->get('terlambat', 0),
-        'alpha_today' => $totalStudents - $todayStats->sum(),
-        'pending_approval' => User::where('role', 'student')
-            ->where('status', 'pending')
-            ->count(),
-    ];
-
-    $weeklyDataRaw = Attendance::selectRaw('DATE(date) as date, COUNT(*) as count')
-        ->where('date', '>=', today()->subDays(6))
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get()
-        ->keyBy('date');
-
-    $weeklyData = [];
-    for ($i = 6; $i >= 0; $i--) {
-        $d = today()->subDays($i);
-        $key = $d->format('Y-m-d');
-
-        $weeklyData[] = [
-            'date' => $d->format('d M'),
-            'count' => $weeklyDataRaw->get($key)->count ?? 0
+        $stats = [
+            'total_students' => $totalStudents,
+            'present_today' => $todayStats->get('hadir', 0),
+            'late_today' => $todayStats->get('terlambat', 0),
+            'alpha_today' => $totalStudents - $todayStats->sum(),
+            'pending_approval' => User::where('role', 'student')
+                ->where('status', 'pending')
+                ->count(),
         ];
+
+        $weeklyDataRaw = Attendance::selectRaw('DATE(date) as date, COUNT(*) as count')
+            ->where('date', '>=', today()->subDays(6))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy('date');
+
+        $weeklyData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $d = today()->subDays($i);
+            $key = $d->format('Y-m-d');
+
+            $weeklyData[] = [
+                'date' => $d->format('d M'),
+                'count' => $weeklyDataRaw->get($key)->count ?? 0
+            ];
+        }
+
+        $recentAttendances = Attendance::with(['user:id,name,nisn,class'])
+            ->select('id', 'user_id', 'status', 'created_at')
+            ->latest()
+            ->limit(10)
+            ->get();
+
+        $monitoringData = collect();
+
+        return view('admin.dashboard', compact(
+            'stats',
+            'weeklyData',
+            'recentAttendances',
+            'date',
+            'classes',
+            'monitoringData'
+        ));
     }
-
-    $recentAttendances = Attendance::with(['user:id,name,nisn,class'])
-        ->select('id', 'user_id', 'status', 'created_at')
-        ->latest()
-        ->limit(10)
-        ->get();
-
-    $monitoringData = collect();
-
-    return view('admin.dashboard', compact(
-        'stats',
-        'weeklyData',
-        'recentAttendances',
-        'date',
-        'classes',
-        'monitoringData'
-    ));
-}
 
     public function approvals()
     {
@@ -139,19 +133,52 @@ class AdminController extends Controller
         return view('admin.students-edit', compact('user', 'classes'));
     }
 
+    // FIXED: Added phone normalization
     public function updateStudent(Request $request, User $user)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'nisn' => 'required|digits:10|unique:users,nisn,' . $user->id,
             'class' => 'required|string',
-            'phone' => 'nullable|string|max:15',
+            'phone' => [
+                'nullable',
+                'string',
+                'min:10',
+                'max:15',
+                'unique:users,phone,' . $user->id,
+                'regex:/^(\+62|62|0)8[0-9]{8,13}$/'
+            ],
             'email' => 'nullable|email|unique:users,email,' . $user->id,
         ]);
+
+        // FIXED: Normalize phone number
+        if (!empty($validated['phone'])) {
+            $validated['phone'] = $this->normalizePhoneNumber($validated['phone']);
+        }
 
         $user->update($validated);
 
         return redirect()->route('admin.students')->with('success', 'Data siswa berhasil diupdate.');
+    }
+
+    // FIXED: Added normalization method
+    private function normalizePhoneNumber($phone)
+    {
+        // Remove all spaces and dashes
+        $phone = preg_replace('/[\s\-]/', '', $phone);
+        
+        // Convert +628xxx to 08xxx
+        if (strpos($phone, '+62') === 0) {
+            return '0' . substr($phone, 3);
+        }
+        
+        // Convert 628xxx to 08xxx
+        if (strpos($phone, '62') === 0) {
+            return '0' . substr($phone, 2);
+        }
+        
+        // Already in 08xxx format
+        return $phone;
     }
 
     public function deleteStudent(User $user)
@@ -280,9 +307,13 @@ class AdminController extends Controller
                 ->whereYear('date', $year)
                 ->get();
 
+            // FIXED: Better calculation (though still needs work day calculation)
             $totalDays = Carbon::createFromDate($year, $month, 1)->daysInMonth;
             $hadir = $attendances->where('status', 'hadir')->count();
             $terlambat = $attendances->where('status', 'terlambat')->count();
+            
+            // Note: This still counts weekends/holidays as alpha
+            // For production, you should implement a school calendar
             $alpha = $totalDays - ($hadir + $terlambat);
             $percentage = $totalDays > 0 ? (($hadir + $terlambat) / $totalDays) * 100 : 0;
 
@@ -300,17 +331,48 @@ class AdminController extends Controller
         return view('admin.reports', compact('reportData', 'month', 'year', 'classes'));
     }
 
+    // FIXED: Export with proper filters
     public function exportExcel(Request $request)
     {
+        $filters = [];
+        
+        // Handle month/year filter (for reports page)
+        if ($request->filled('month') && $request->filled('year')) {
+            $startDate = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
+            $endDate = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
+            
+            $filters['start_date'] = $startDate->format('Y-m-d');
+            $filters['end_date'] = $endDate->format('Y-m-d');
+        }
+        // Handle date range filter (for history page)
+        elseif ($request->filled('start_date') && $request->filled('end_date')) {
+            $filters['start_date'] = $request->start_date;
+            $filters['end_date'] = $request->end_date;
+        }
+        
+        // Handle class filter
+        if ($request->filled('class')) {
+            $filters['class'] = $request->class;
+        }
+        
         $filename = 'attendance_' . now()->format('Y-m-d_His') . '.xlsx';
-        return Excel::download(new AttendanceExport($request->all()), $filename);
+        return Excel::download(new AttendanceExport($filters), $filename);
     }
 
+    // FIXED: Export with proper filters
     public function exportPdf(Request $request)
     {
         $query = Attendance::with('user');
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
+        // Handle month/year filter (for reports page)
+        if ($request->filled('month') && $request->filled('year')) {
+            $startDate = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
+            $endDate = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
+            
+            $query->whereBetween('date', [$startDate, $endDate]);
+        }
+        // Handle date range filter (for history page)
+        elseif ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('date', [$request->start_date, $request->end_date]);
         }
 

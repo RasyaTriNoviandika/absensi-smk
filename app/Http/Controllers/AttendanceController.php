@@ -148,10 +148,15 @@ public function checkOut(Request $request)
     }
 
     // Verify face
-    $storedDescriptor = json_decode($user->face_descriptor, true);
+    $storedDescriptor = $user->face_descriptor; 
+
     $threshold = Setting::get('face_match_threshold', 0.6);
-    
-    if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
+
+    if (!FaceRecognitionService::isMatch(
+        $validated['face_descriptor'],
+        $storedDescriptor,
+        $threshold
+    )) {
         return response()->json([
             'success' => false,
             'message' => 'Wajah tidak cocok. Silakan coba lagi.'
@@ -180,6 +185,15 @@ public function checkOut(Request $request)
         'message' => 'Absen pulang berhasil! Hati-hati di jalan.',
         'time' => now()->format('H:i'),
     ]);
+
+    $minCheckoutTime = Setting::get('check_out_time_min', '14:00');
+    if (now()->format('H:i') < $minCheckoutTime) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Anda belum bisa absen pulang sebelum jam ' . $minCheckoutTime . '.'
+        ], 400);
+    }
+
 }
 
 private function calculateDistance($lat1, $lon1, $lat2, $lon2)
@@ -200,16 +214,22 @@ private function calculateDistance($lat1, $lon1, $lat2, $lon2)
 
 private function saveBase64Image($base64String, $prefix)
 {
-    // Remove data:image/png;base64, or data:image/jpeg;base64, part
-    $image = preg_replace('/^data:image\/\w+;base64,/', '', $base64String);
-    $image = str_replace(' ', '+', $image);
-    $imageName = $prefix . '_' . time() . '_' . uniqid() . '.jpg';
-    
-    // OPTIMASI: Gunakan Storage facade
-    $path = 'attendance/' . $imageName;
-    \Storage::disk('public')->put($path, base64_decode($image));
-    
-    return $path;
+    try {
+        $image = preg_replace('/^data:image\/\w+;base64,/', '', $base64String);
+        $image = str_replace(' ', '+', $image);
+        $imageName = $prefix . '_' . time() . '_' . uniqid() . '.jpg';
+        
+        $path = 'attendance/' . $imageName;
+        
+        if (!\Storage::disk('public')->put($path, base64_decode($image))) {
+            throw new \Exception('Failed to save image to storage');
+        }
+        
+        return $path;
+    } catch (\Exception $e) {
+        \Log::error('Image save error: ' . $e->getMessage());
+        throw new \Exception('Failed to save image');
+    }
 }
 
 public function history(Request $request)
