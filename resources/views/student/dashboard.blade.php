@@ -9,6 +9,9 @@
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-800">Dashboard Absensi</h1>
             <p class="text-gray-600">{{ now()->isoFormat('dddd, D MMMM YYYY') }}</p>
+            <p class="text-sm text-gray-500 mt-1">
+                <i class="fas fa-clock mr-1"></i>Waktu sekarang: <span id="currentTime" class="font-semibold">{{ now()->format('H:i:s') }}</span>
+            </p>
         </div>
 
         <!-- Stats Cards -->
@@ -107,7 +110,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-gray-800">Absen Pulang</h3>
-                        <p class="text-sm text-gray-600">Minimal: 14:00 WIB</p>
+                        <p class="text-sm text-gray-600">Minimal: 16:00 WIB</p>
                     </div>
                 </div>
 
@@ -118,6 +121,9 @@
                             <div>
                                 <p class="font-semibold">Sudah Absen</p>
                                 <p class="text-sm">{{ $todayAttendance->check_out->format('H:i') }} WIB</p>
+                                @if($todayAttendance->notes)
+                                    <p class="text-xs mt-1 text-purple-600">{{ $todayAttendance->notes }}</p>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -191,54 +197,115 @@
     </div>
 </div>
 
-<!-- Modal for Camera -->
-<div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-bold text-gray-800" id="modalTitle">Scan Wajah</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times text-2xl"></i>
-            </button>
+<!-- Modal for Camera - IMPROVED UI -->
+<div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 relative">
+        <!-- Close Button -->
+        <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 z-10">
+            <i class="fas fa-times text-2xl"></i>
+        </button>
+
+        <!-- Status Banner -->
+        <div id="statusBanner" class="mb-4 p-4 rounded-lg bg-blue-50 border-l-4 border-blue-500">
+            <div class="flex items-center">
+                <div class="animate-pulse mr-3">
+                    <i class="fas fa-camera text-2xl text-blue-600"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-blue-900" id="modalTitle">Sedang Memproses Absen Masuk</p>
+                    <p class="text-sm text-blue-700" id="modalSubtitle">Posisikan wajah Anda di depan kamera</p>
+                </div>
+            </div>
         </div>
 
+        <!-- Camera Preview -->
         <div class="bg-gray-900 rounded-lg overflow-hidden mb-4 relative" style="height: 480px;">
             <video id="video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
             <canvas id="canvas" style="display: none;"></canvas>
             
-            <div id="faceDetected" class="absolute bottom-4 left-4 right-4 hidden">
-                <div class="bg-green-500 text-white px-4 py-2 rounded-lg text-center font-semibold">
-                    <i class="fas fa-check-circle mr-2"></i>Wajah Terdeteksi!
+            <!-- Face Detection Indicator -->
+            <div id="faceDetected" class="absolute top-4 left-4 right-4 hidden">
+                <div class="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg animate-pulse">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-2xl mr-3"></i>
+                        <div>
+                            <p class="font-bold">Wajah Terdeteksi!</p>
+                            <p class="text-sm">Klik tombol di bawah untuk absen</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            <!-- Loading Overlay -->
             <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                 <div class="text-center text-white">
                     <i class="fas fa-spinner fa-spin text-4xl mb-3"></i>
-                    <p>Loading...</p>
+                    <p class="font-semibold">Memuat Model AI...</p>
+                    <p class="text-sm text-gray-400 mt-1">Harap tunggu sebentar</p>
                 </div>
             </div>
         </div>
 
-        <div id="locationCheck" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 hidden">
-            <p class="text-sm text-blue-800">
-                <i class="fas fa-map-marker-alt mr-2"></i>
-                Checking your location...
+        <!-- Instructions -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <p class="text-sm text-yellow-800 font-semibold mb-2">
+                <i class="fas fa-info-circle mr-2"></i>Petunjuk:
             </p>
+            <ul class="text-xs text-yellow-700 space-y-1 ml-6 list-disc">
+                <li>Pastikan telah aktifkan fitur kamera</li>
+                <li>Pastikan wajah Anda terlihat jelas</li>
+                <li>Pencahayaan harus cukup terang</li>
+                <li>Lepas masker dan kacamata</li>
+                <li>Tunggu hingga wajah terdeteksi (kotak hijau muncul)</li>
+            </ul>
         </div>
 
+        <!-- Early Checkout Notice (only shown on checkout) -->
+        <div id="earlyCheckoutNotice" class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 hidden">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-circle text-orange-500 text-2xl mr-3 mt-1"></i>
+                <div class="flex-1">
+                    <p class="font-bold text-orange-900 mb-2">Anda Pulang Lebih Awal</p>
+                    <p class="text-sm text-orange-800 mb-3">Jam minimal pulang adalah <strong id="minCheckoutTime">16:00</strong>. Harap isi alasan pulang cepat:</p>
+                    <textarea id="earlyReason" 
+                        class="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                        rows="3"
+                        placeholder="Contoh: Izin sakit / Ada keperluan keluarga / Surat izin dokter"
+                        minlength="10"
+                        maxlength="500"></textarea>
+                    <p class="text-xs text-orange-600 mt-1">
+                        <span id="reasonLength">0</span>/500 karakter (minimal 10)
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
         <button id="captureBtn" onclick="captureAndSubmit()" disabled
-            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed">
             <i class="fas fa-camera mr-2"></i>Ambil Foto & Absen
         </button>
+
+        <!-- Progress Info -->
+        <div id="progressInfo" class="mt-3 text-center text-sm text-gray-600 hidden">
+            <i class="fas fa-spinner fa-spin mr-2"></i>Sedang memproses absensi...
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
-// FIXED: KOORDINAT SEKOLAH - RADIUS 100 METER
+// Update real-time clock
+setInterval(() => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('id-ID');
+    document.getElementById('currentTime').textContent = timeStr;
+}, 1000);
+
+// Face recognition variables
 const SCHOOL_LAT = -6.2706589; 
 const SCHOOL_LNG = 106.9593685; 
-const MAX_DISTANCE = 500000; // FIXED: 100 meter (bukan 50000!)
+const MAX_DISTANCE = 50000; // 50km untuk dev, ganti 100 untuk production
 
 let modelsLoaded = false;
 let stream = null;
@@ -247,32 +314,35 @@ let currentType = null;
 let userLat = null;
 let userLng = null;
 
-// Load face-api models
+// Load models
 (async function initModels() {
     try {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-        console.log('Loading face-api models...');
-        
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
-        
         modelsLoaded = true;
-        console.log('✅ Models loaded successfully');
+        console.log('✅ Models loaded');
     } catch (error) {
-        console.error('❌ Failed to load models:', error);
-        alert('Gagal memuat model deteksi wajah. Refresh halaman dan pastikan koneksi internet stabil.');
+        console.error('❌ Model load error:', error);
+        alert('Gagal memuat model AI. Refresh halaman.');
     }
 })();
 
-function getCsrfToken() {
-    const token = document.querySelector('meta[name="csrf-token"]')?.content;
-    if (!token) {
-        console.error('❌ CSRF token not found in meta tag');
+// Early reason character counter
+document.addEventListener('DOMContentLoaded', function() {
+    const earlyReason = document.getElementById('earlyReason');
+    if (earlyReason) {
+        earlyReason.addEventListener('input', function() {
+            document.getElementById('reasonLength').textContent = this.value.length;
+        });
     }
-    return token || '';
+});
+
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -281,28 +351,17 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const φ2 = lat2 * Math.PI/180;
     const Δφ = (lat2-lat1) * Math.PI/180;
     const Δλ = (lon2-lon1) * Math.PI/180;
-
     const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
             Math.cos(φ1) * Math.cos(φ2) *
             Math.sin(Δλ/2) * Math.sin(Δλ/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
     return R * c;
 }
 
-let locationCheckCache = null;
-let locationCheckTime = null;
-const LOCATION_CACHE_DURATION = 60000;
-
 async function checkLocation() {
-    if (locationCheckCache && locationCheckTime && 
-        (Date.now() - locationCheckTime < LOCATION_CACHE_DURATION)) {
-        return locationCheckCache;
-    }
-
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-            reject('Geolocation tidak didukung browser Anda');
+            reject('Browser tidak support GPS');
             return;
         }
 
@@ -310,58 +369,58 @@ async function checkLocation() {
             (position) => {
                 userLat = position.coords.latitude;
                 userLng = position.coords.longitude;
-                
                 const distance = calculateDistance(SCHOOL_LAT, SCHOOL_LNG, userLat, userLng);
                 
-                console.log(`📍 Distance from school: ${Math.round(distance)} meters`);
                 document.getElementById('distanceInfo').textContent = Math.round(distance);
                 
                 if (distance <= MAX_DISTANCE) {
                     document.getElementById('locationWarning').classList.add('hidden');
-                    locationCheckCache = true;
-                    locationCheckTime = Date.now();
                     resolve(true);
                 } else {
                     document.getElementById('locationWarning').classList.remove('hidden');
-                    locationCheckCache = false;
-                    locationCheckTime = Date.now();
-                    reject(`Anda berada ${Math.round(distance)} meter dari sekolah. Jarak maksimal: ${MAX_DISTANCE} meter.`);
+                    reject(`Jarak ${Math.round(distance)}m. Maksimal ${MAX_DISTANCE}m.`);
                 }
             },
             (error) => {
-                let errorMsg = 'Tidak dapat mengakses lokasi.';
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMsg = 'Izin lokasi ditolak. Aktifkan GPS dan izinkan akses lokasi.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMsg = 'Lokasi tidak tersedia. Pastikan GPS aktif.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMsg = 'Request lokasi timeout. Coba lagi.';
-                        break;
-                }
-                console.error('❌ Geolocation error:', errorMsg);
-                reject(errorMsg);
+                reject('Tidak dapat mengakses lokasi. Aktifkan GPS.');
             },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     });
 }
 
 async function openCheckInModal() {
     currentType = 'checkin';
-    document.getElementById('modalTitle').textContent = 'Absen Masuk';
+    document.getElementById('modalTitle').textContent = 'Sedang Memproses Absen Masuk';
+    document.getElementById('modalSubtitle').textContent = 'Posisikan wajah Anda di depan kamera';
+    document.getElementById('earlyCheckoutNotice').classList.add('hidden');
     await openModal();
 }
 
 async function openCheckOutModal() {
     currentType = 'checkout';
-    document.getElementById('modalTitle').textContent = 'Absen Pulang';
+    
+    // Check apakah pulang lebih awal
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+    const minCheckoutMinutes = 16 * 60; // 16:00 = 960 menit
+    
+    const isEarly = currentMinutes < minCheckoutMinutes;
+    
+    if (isEarly) {
+        document.getElementById('modalTitle').textContent = 'Absen Pulang (Lebih Awal)';
+        document.getElementById('modalSubtitle').textContent = 'Anda pulang sebelum jam 16:00';
+        document.getElementById('earlyCheckoutNotice').classList.remove('hidden');
+        document.getElementById('statusBanner').classList.remove('bg-blue-50', 'border-blue-500');
+        document.getElementById('statusBanner').classList.add('bg-orange-50', 'border-orange-500');
+    } else {
+        document.getElementById('modalTitle').textContent = 'Sedang Memproses Absen Pulang';
+        document.getElementById('modalSubtitle').textContent = 'Posisikan wajah Anda di depan kamera';
+        document.getElementById('earlyCheckoutNotice').classList.add('hidden');
+    }
+    
     await openModal();
 }
 
@@ -370,16 +429,16 @@ async function openModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    document.getElementById('locationCheck').classList.remove('hidden');
+    // Check location
     try {
         await checkLocation();
-        document.getElementById('locationCheck').classList.add('hidden');
     } catch (error) {
         alert(error);
         closeModal();
         return;
     }
 
+    // Wait for models
     if (!modelsLoaded) {
         document.getElementById('loading').classList.remove('hidden');
         let attempts = 0;
@@ -388,38 +447,31 @@ async function openModal() {
             attempts++;
         }
         if (!modelsLoaded) {
-            alert('Gagal memuat model. Refresh halaman.');
+            alert('Model AI gagal dimuat. Refresh halaman.');
             closeModal();
             return;
         }
     }
     document.getElementById('loading').classList.add('hidden');
 
+    // Start camera
     try {
         stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                facingMode: 'user',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            } 
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
         });
         document.getElementById('video').srcObject = stream;
-        
-        const video = document.getElementById('video');
         await new Promise(resolve => {
-            video.onloadedmetadata = resolve;
+            document.getElementById('video').onloadedmetadata = resolve;
         });
-        
         startFaceDetection();
     } catch (err) {
-        console.error('❌ Camera error:', err);
-        alert('Tidak dapat mengakses kamera. Pastikan izin kamera diberikan.');
+        alert('Tidak dapat mengakses kamera.');
         closeModal();
     }
 }
 
 let lastDetectionTime = 0;
-const DETECTION_THROTTLE = 1000; // FIXED: 1 detik (lebih hemat resource)
+const DETECTION_THROTTLE = 500;
 
 function startFaceDetection() {
     const video = document.getElementById('video');
@@ -428,9 +480,7 @@ function startFaceDetection() {
 
     detectionInterval = setInterval(async () => {
         const now = Date.now();
-        if (now - lastDetectionTime < DETECTION_THROTTLE) {
-            return;
-        }
+        if (now - lastDetectionTime < DETECTION_THROTTLE) return;
         lastDetectionTime = now;
 
         if (!modelsLoaded || video.readyState !== 4) return;
@@ -458,31 +508,41 @@ async function captureAndSubmit() {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const btn = document.getElementById('captureBtn');
+    const progressInfo = document.getElementById('progressInfo');
+
+    // Check early reason jika checkout lebih awal
+    if (currentType === 'checkout') {
+        const notice = document.getElementById('earlyCheckoutNotice');
+        if (!notice.classList.contains('hidden')) {
+            const reason = document.getElementById('earlyReason').value.trim();
+            if (reason.length < 10) {
+                alert('Harap isi alasan pulang cepat minimal 10 karakter!');
+                return;
+            }
+        }
+    }
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+    progressInfo.classList.remove('hidden');
 
     try {
-        console.log('🎯 Starting capture process...');
-        
         const detection = await faceapi.detectSingleFace(
             video,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
         ).withFaceLandmarks().withFaceDescriptor();
 
         if (!detection) {
-            alert('Wajah tidak terdeteksi. Pastikan wajah Anda menghadap kamera dengan pencahayaan cukup.');
+            alert('Wajah tidak terdeteksi! Coba lagi.');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+            progressInfo.classList.add('hidden');
             return;
         }
 
-        console.log('✅ Face detected');
-
         canvas.width = 640;
         canvas.height = 480;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, 640, 480);
+        canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
         
         const photo = canvas.toDataURL('image/jpeg', 0.8);
         const faceDescriptor = Array.from(detection.descriptor);
@@ -491,14 +551,17 @@ async function captureAndSubmit() {
             ? '{{ route("attendance.checkin") }}' 
             : '{{ route("attendance.checkout") }}';
 
-        console.log('📤 Submitting to:', url);
-        console.log('📊 Data:', {
-            type: currentType,
-            face_descriptor_length: faceDescriptor.length,
-            photo_size: photo.length,
+        const requestData = {
+            face_descriptor: faceDescriptor,
+            photo: photo,
             latitude: userLat,
             longitude: userLng
-        });
+        };
+
+        // Add early reason jika ada
+        if (currentType === 'checkout' && !document.getElementById('earlyCheckoutNotice').classList.contains('hidden')) {
+            requestData.early_reason = document.getElementById('earlyReason').value.trim();
+        }
 
         const response = await fetch(url, {
             method: 'POST',
@@ -507,43 +570,34 @@ async function captureAndSubmit() {
                 'X-CSRF-TOKEN': getCsrfToken(),
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                face_descriptor: faceDescriptor,
-                photo: photo,
-                latitude: userLat,
-                longitude: userLng
-            })
+            body: JSON.stringify(requestData)
         });
 
-        console.log('📥 Response status:', response.status);
+        const result = await response.json();
 
-        let result;
-        try {
-            result = await response.json();
-            console.log('📋 Server response:', result);
-        } catch (e) {
-            console.error('❌ Failed to parse JSON:', e);
-            throw new Error('Server returned invalid response');
-        }
-
-        if (!response.ok) {
-            throw new Error(result.message || `Server error (${response.status})`);
-        }
-        
-        if (result.success) {
-            alert(result.message);
-            closeModal();
-            window.location.reload();
-        } else {
-            alert(result.message || 'Gagal melakukan absensi');
+        if (result.requires_reason) {
+            // Show early checkout form
+            document.getElementById('earlyCheckoutNotice').classList.remove('hidden');
+            document.getElementById('minCheckoutTime').textContent = result.min_time;
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+            progressInfo.classList.add('hidden');
+            return;
         }
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Gagal absen');
+        }
+        
+        alert(result.message);
+        closeModal();
+        window.location.reload();
     } catch (error) {
-        console.error('❌ Submit error:', error);
+        console.error('Error:', error);
         alert('Error: ' + error.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+        progressInfo.classList.add('hidden');
     }
 }
 
@@ -561,12 +615,13 @@ function closeModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     
-    const captureBtn = document.getElementById('captureBtn');
-    captureBtn.disabled = true;
-    captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+    document.getElementById('captureBtn').disabled = true;
+    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+    document.getElementById('progressInfo').classList.add('hidden');
+    document.getElementById('earlyReason').value = '';
+    document.getElementById('reasonLength').textContent = '0';
 }
 
-// FIXED: Modal close on outside click
 document.getElementById('cameraModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeModal();
@@ -574,9 +629,7 @@ document.getElementById('cameraModal').addEventListener('click', function(e) {
 });
 
 window.addEventListener('load', () => {
-    checkLocation().catch(() => {
-        // Silent fail on page load
-    });
+    checkLocation().catch(() => {});
 });
 </script>
 @endsection

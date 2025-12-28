@@ -145,6 +145,7 @@
                         <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
                             <p class="text-blue-800"><strong>Instruksi:</strong></p>
                             <ul class="text-blue-800 mt-1 ml-4 list-disc">
+                                <li class="text-red-50">Pastikan Kamera Aktif</li>
                                 <li>Wajah menghadap kamera</li>
                                 <li>Pencahayaan cukup terang</li>
                                 <li>Tidak pakai masker/kacamata</li>
