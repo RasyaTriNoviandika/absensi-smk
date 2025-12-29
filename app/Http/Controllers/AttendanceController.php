@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Services\FaceRecognitionService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -78,21 +79,21 @@ class AttendanceController extends Controller
             ], 500);
         }
 
-        // Determine status berdasarkan waktu REAL-TIME
-        $checkInTime = now(); // Waktu real-time sekarang
+        // FIX: Gunakan Carbon::now() untuk waktu real-time yang akurat
+        $checkInTime = Carbon::now('Asia/Jakarta');
         $limitTime = Setting::get('check_in_time_limit', '07:30');
         
-        // Parse limit time ke Carbon untuk perbandingan
-        $limitDateTime = today()->setTimeFromTimeString($limitTime);
+        // Parse limit time ke Carbon untuk hari ini
+        $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
         
         // Bandingkan waktu check-in dengan batas waktu
         $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
 
-        // Create attendance record
+        // Create attendance record dengan format datetime yang benar
         $attendance = Attendance::create([
             'user_id' => $user->id,
-            'date' => today(),
-            'check_in' => $checkInTime,
+            'date' => $checkInTime->toDateString(), // Format: Y-m-d
+            'check_in' => $checkInTime->toTimeString(), // Format: H:i:s
             'check_in_status' => $status,
             'check_in_photo' => $photoPath,
             'status' => $status,
@@ -102,7 +103,7 @@ class AttendanceController extends Controller
             'success' => true,
             'message' => $status === 'hadir' 
                 ? 'Absen masuk berhasil! Anda tepat waktu.' 
-                : 'Absen masuk berhasil, Namun Anda terlambat.',
+                : 'Absen masuk berhasil, namun Anda terlambat.',
             'status' => $status,
             'time' => $checkInTime->format('H:i'),
         ]);
@@ -131,10 +132,10 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Check waktu minimal checkout
+        // FIX: Gunakan Carbon untuk waktu real-time
+        $currentTime = Carbon::now('Asia/Jakarta');
         $minCheckoutTime = Setting::get('check_out_time_min', '16:00');
-        $minCheckoutDateTime = today()->setTimeFromTimeString($minCheckoutTime);
-        $currentTime = now();
+        $minCheckoutDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($minCheckoutTime);
         
         // Jika pulang lebih awal, wajib isi alasan
         $isEarlyCheckout = $currentTime->lessThan($minCheckoutDateTime);
@@ -206,14 +207,15 @@ class AttendanceController extends Controller
             ], 500);
         }
 
-        // Update attendance dengan notes jika pulang cepat
+        // FIX: Update attendance dengan waktu real-time dan notes
         $updateData = [
-            'check_out' => $currentTime,
+            'check_out' => $currentTime->toTimeString(), // Format: H:i:s
             'check_out_photo' => $photoPath,
         ];
 
+        // FIX: Simpan notes untuk early checkout
         if ($isEarlyCheckout && isset($validated['early_reason'])) {
-            $updateData['notes'] = 'Pulang cepat (Jam ' . $currentTime->format('H:i') . '): ' . $validated['early_reason'];
+            $updateData['notes'] = 'Pulang cepat (' . $currentTime->format('H:i') . '): ' . $validated['early_reason'];
         }
 
         $attendance->update($updateData);
