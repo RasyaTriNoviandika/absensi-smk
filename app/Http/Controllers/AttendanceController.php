@@ -12,91 +12,119 @@ use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
-     public function checkIn(Request $request)
+    public function checkIn(Request $request)
     {
-        $user = auth()->user();
-        
-        if (Attendance::where('user_id', $user->id)
-            ->whereDate('date', today())
-            ->whereNotNull('check_in')
-            ->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah absen masuk hari ini.'
-            ], 400);
-        }
-
-        $validated = $request->validate([
-            'face_descriptor' => 'required|array',
-            'photo' => 'required|string',
-            'latitude' => 'required|numeric',
-            'longitude' => 'required|numeric',
-        ]);
-
-        $schoolLat = -6.2706589;
-        $schoolLng = 106.9593685;
-        $maxDistance = 50000;
-        
-        $distance = $this->calculateDistance(
-            $schoolLat, 
-            $schoolLng, 
-            $validated['latitude'], 
-            $validated['longitude']
-        );
-        
-        if ($distance > $maxDistance) {
-            return response()->json([
-                'success' => false,
-                'message' => "Anda berada " . round($distance) . " meter dari sekolah. Maksimal $maxDistance meter."
-            ], 400);
-        }
-
-        $storedDescriptor = $user->face_descriptor;
-        if (!is_array($storedDescriptor)) {
-            $storedDescriptor = json_decode($storedDescriptor, true);
-        }
-        
-        $threshold = Setting::get('face_match_threshold', 0.6);
-        
-        if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Wajah tidak cocok. Silakan coba lagi.'
-            ], 400);
-        }
-
         try {
-            $photoPath = $this->saveBase64Image($validated['photo'], 'checkin');
-        } catch (\Exception $e) {
-            Log::error('Photo save failed: ' . $e->getMessage());
+            $user = auth()->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi.'
+                ], 401);
+            }
+            
+            if (Attendance::where('user_id', $user->id)
+                ->whereDate('date', today())
+                ->whereNotNull('check_in')
+                ->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda sudah absen masuk hari ini.'
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'face_descriptor' => 'required|array',
+                'photo' => 'required|string',
+                'latitude' => 'required|numeric',
+                'longitude' => 'required|numeric',
+            ]);
+
+            $schoolLat = -6.2706589;
+            $schoolLng = 106.9593685;
+            $maxDistance = 50000;
+            
+            $distance = $this->calculateDistance(
+                $schoolLat, 
+                $schoolLng, 
+                $validated['latitude'], 
+                $validated['longitude']
+            );
+            
+            if ($distance > $maxDistance) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Anda berada " . round($distance) . " meter dari sekolah. Maksimal $maxDistance meter."
+                ], 400);
+            }
+
+            $storedDescriptor = $user->face_descriptor;
+            if (!is_array($storedDescriptor)) {
+                $storedDescriptor = json_decode($storedDescriptor, true);
+            }
+            
+            $threshold = Setting::get('face_match_threshold', 0.6);
+            
+            if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Wajah tidak cocok. Silakan coba lagi.'
+                ], 400);
+            }
+
+            try {
+                $photoPath = $this->saveBase64Image($validated['photo'], 'checkin');
+            } catch (\Exception $e) {
+                Log::error('Photo save failed: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menyimpan foto. Coba lagi.'
+                ], 500);
+            }
+
+            $checkInTime = Carbon::now('Asia/Jakarta');
+            $limitTime = Setting::get('check_in_time_limit', '07:30');
+            $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
+            $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
+
+            $attendance = Attendance::create([
+                'user_id' => $user->id,
+                'date' => $checkInTime->toDateString(),
+                'check_in' => $checkInTime->toTimeString(),
+                'check_in_status' => $status,
+                'check_in_photo' => $photoPath,
+                'status' => $status,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $status === 'hadir' 
+                    ? 'Absen masuk berhasil! Anda tepat waktu.' 
+                    : 'Absen masuk berhasil, namun Anda terlambat.',
+                'status' => $status,
+                'time' => $checkInTime->format('H:i'),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan foto. Coba lagi.'
+                'message' => 'Validasi gagal: ' . implode(', ', $e->errors()),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('CheckIn Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Pastikan selalu return JSON
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : 'Terjadi kesalahan pada server'
             ], 500);
         }
-
-        $checkInTime = Carbon::now('Asia/Jakarta');
-        $limitTime = Setting::get('check_in_time_limit', '07:30');
-        $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
-        $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
-
-        $attendance = Attendance::create([
-            'user_id' => $user->id,
-            'date' => $checkInTime->toDateString(),
-            'check_in' => $checkInTime->toTimeString(),
-            'check_in_status' => $status,
-            'check_in_photo' => $photoPath,
-            'status' => $status,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => $status === 'hadir' 
-                ? 'Absen masuk berhasil! Anda tepat waktu.' 
-                : 'Absen masuk berhasil, namun Anda terlambat.',
-            'status' => $status,
-            'time' => $checkInTime->format('H:i'),
-        ]);
     }
 
     public function checkOut(Request $request)
@@ -245,20 +273,22 @@ class AttendanceController extends Controller
     }
 
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
-    {
-        $R = 6371e3;
-        $φ1 = deg2rad($lat1);
-        $φ2 = deg2rad($lat2);
-        $Δφ = deg2rad($lat2 - $lat1);
-        $Δλ = deg2rad($lon2 - $lon1);
+{
+    $R = 6371000; // meter
 
-        $a = sin($Δφ/2) * sin($Δφ/2) +
-             cos($φ1) * cos($φ2) *
-             sin($Δλ/2) * sin($Δλ/2);
-        $c = 2 * atan2(sqrt($a), sqrt(1-a));
+    $phi1 = deg2rad($lat1);
+    $phi2 = deg2rad($lat2);
+    $deltaPhi = deg2rad($lat2 - $lat1);
+    $deltaLambda = deg2rad($lon2 - $lon1);
 
-        return $R * $c;
-    }
+    $a = sin($deltaPhi / 2) * sin($deltaPhi / 2) +
+         cos($phi1) * cos($phi2) *
+         sin($deltaLambda / 2) * sin($deltaLambda / 2);
+
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+    return $R * $c;
+}
 
     private function saveBase64Image($base64String, $prefix)
     {

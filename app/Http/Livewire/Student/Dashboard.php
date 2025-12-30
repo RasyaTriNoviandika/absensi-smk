@@ -22,11 +22,14 @@ class Dashboard extends Component
     {
         $user = auth()->user();
         
+        // Today's attendance
         $this->todayAttendance = $user->todayAttendance();
         
+        // This month statistics - Optimized dengan select minimal
         $thisMonthAttendances = $user->attendances()
             ->whereMonth('date', now()->month)
             ->whereYear('date', now()->year)
+            ->select('status')
             ->get();
 
         $this->stats = [
@@ -35,7 +38,9 @@ class Dashboard extends Component
             'alpha' => $thisMonthAttendances->where('status', 'alpha')->count(),
         ];
 
+        // Recent attendances - Hanya ambil 7 terakhir
         $this->recentAttendances = $user->attendances()
+            ->select('id', 'date', 'check_in', 'check_out', 'status')
             ->orderBy('date', 'desc')
             ->limit(7)
             ->get();

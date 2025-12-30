@@ -1,4 +1,8 @@
-<div>
+@extends('layouts.app')
+
+@section('title', 'Dashboard Siswa')
+
+@section('content')
 <div class="min-h-screen bg-gray-50 py-4 sm:py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header - RESPONSIVE -->
@@ -142,7 +146,7 @@
             <div class="p-4 sm:p-6 border-b border-gray-200">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <h3 class="text-base sm:text-lg font-bold text-gray-800">Riwayat 7 Hari Terakhir</h3>
-                    <a href="{{ route('student.history') }}" class="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-semibold">
+                    <a href="{{ route('attendance.history') }}" class="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-semibold">
                         Lihat Semua <i class="fas fa-arrow-right ml-1"></i>
                     </a>
                 </div>
@@ -195,14 +199,15 @@
 </div>
 
 <!-- Modal for Camera - OPTIMIZED LOADING + RESPONSIVE -->
+
 <div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-2 sm:p-4">
     <div class="bg-white rounded-lg p-3 sm:p-6 w-full max-w-md relative max-h-screen overflow-y-auto">
-        <!-- Close Button -->
+        <!-- Close Button - Diperkecil untuk mobile -->
         <button onclick="closeModal()" class="absolute top-1 right-1 sm:top-3 sm:right-3 text-gray-500 hover:text-gray-700 z-10 p-1 sm:p-2">
             <i class="fas fa-times text-lg sm:text-xl"></i>
         </button>
 
-        <!-- Status Banner -->
+        <!-- Status Banner - Diperkecil -->
         <div id="statusBanner" class="mb-2 sm:mb-4 p-2 sm:p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500">
             <div class="flex items-center">
                 <div class="animate-pulse mr-2">
@@ -215,12 +220,12 @@
             </div>
         </div>
 
-        <!-- Camera Preview -->
+        <!-- Camera Preview - DIPERKECIL untuk Mobile (250px) -->
         <div class="bg-gray-900 rounded-lg overflow-hidden mb-2 sm:mb-3 relative" style="height: 250px;">
             <video id="video" autoplay playsinline class="w-full h-full object-cover" style="transform: scaleX(-1);"></video>
             <canvas id="canvas" class="hidden"></canvas>
             
-            <!-- Face Detection Indicator -->
+            <!-- Face Detection Indicator - Lebih kecil -->
             <div id="faceDetected" class="absolute top-2 left-2 right-2 hidden">
                 <div class="bg-green-500 text-white px-2 py-1.5 rounded shadow-lg">
                     <div class="flex items-center text-xs">
@@ -231,7 +236,7 @@
             </div>
 
             <!-- Loading Overlay -->
-            <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+              <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                 <div class="text-center text-white">
                     <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
                     <p class="font-semibold text-xs">Loading AI...</p>
@@ -239,8 +244,8 @@
             </div>
         </div>
 
-        <!-- Instructions -->
-        <div class="bg-yellow-50 border border-yellow-200 rounded p-2 mb-2 text-xs">
+        <!-- Instructions - Compact -->
+       <div class="bg-yellow-50 border border-yellow-200 rounded p-2 mb-2 text-xs">
             <p class="text-yellow-800 font-semibold mb-1">
                 <i class="fas fa-info-circle mr-1"></i>Tips:
             </p>
@@ -252,7 +257,8 @@
             </ul>
         </div>
 
-        <!-- Early Checkout Notice -->
+
+        <!--  TAMBAHAN: Early Checkout Notice dengan Upload Foto -->
         <div id="earlyCheckoutNotice" class="bg-orange-50 border border-orange-200 rounded p-2 sm:p-3 mb-2 hidden">
             <div class="flex items-start">
                 <i class="fas fa-exclamation-circle text-orange-500 text-base sm:text-lg mr-2 mt-0.5"></i>
@@ -265,14 +271,14 @@
                     <textarea id="earlyReason" 
                         class="w-full px-2 py-1.5 border border-orange-300 rounded text-xs mb-2"
                         rows="2"
-                        placeholder="Contoh: Sakit / Ada keperluan"
+                        placeholder="Contoh: Sakit / Ada keperluan mendadak"
                         minlength="10"
                         maxlength="500"></textarea>
                     <p class="text-xs text-orange-600 mb-2">
                         <span id="reasonLength">0</span>/500 karakter (min 10)
                     </p>
                     
-                    <!-- Upload Foto Bukti Surat -->
+                    <!-- ✅ Upload Foto Bukti Surat -->
                     <label class="block text-xs font-semibold text-orange-900 mb-1">2. Foto Bukti Surat:</label>
                     <div class="mb-2">
                         <input type="file" 
@@ -301,29 +307,22 @@
             </div>
         </div>
 
-        <!-- Action Button -->
+        <!-- Action Button - Compact -->
         <button id="captureBtn" onclick="captureAndSubmit()" disabled
             class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded transition disabled:bg-gray-300 disabled:cursor-not-allowed text-xs sm:text-sm">
             <i class="fas fa-camera mr-1"></i>Ambil Foto & Absen
         </button>
 
         <!-- Progress Info -->
-        <div id="progressInfo" class="mt-2 text-center text-xs text-gray-600 hidden">
+               <div id="progressInfo" class="mt-2 text-center text-xs text-gray-600 hidden">
             <i class="fas fa-spinner fa-spin mr-1"></i>Proses...
         </div>
     </div>
 </div>
 
-@push('scripts')
+<!-- FIX: OPTIMIZED FACE-API LOADING -->
 <script>
-// Define routes di awal - gunakan URL langsung untuk menghindari parsing error
-// Fix: Gunakan URL langsung tanpa route helper untuk menghindari error parsing
-const ATTENDANCE_ROUTES = {
-    checkin: '/attendance/checkin',
-    checkout: '/attendance/checkout'
-};
-
-// Preload face-api in background
+// Preload face-api in background saat halaman load
 const faceApiScript = document.createElement('script');
 faceApiScript.src = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
 faceApiScript.async = true;
@@ -332,10 +331,7 @@ document.head.appendChild(faceApiScript);
 // Update real-time clock
 setInterval(() => {
     const now = new Date();
-    const timeEl = document.getElementById('currentTime');
-    if (timeEl) {
-        timeEl.textContent = now.toLocaleTimeString('id-ID');
-    }
+    document.getElementById('currentTime').textContent = now.toLocaleTimeString('id-ID');
 }, 1000);
 
 // Face recognition variables
@@ -351,11 +347,12 @@ let userLat = null;
 let userLng = null;
 let earlyPhotoBase64 = null;
 
-// Load models
+// FIX: OPTIMIZED MODEL LOADING - Load hanya models yang diperlukan
 faceApiScript.onload = async function() {
     try {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         
+        // Load models secara paralel dengan Promise.all untuk lebih cepat
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -377,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
         photoInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                if (file.size > 5 * 1024 * 1024) {
+                if (file.size > 5 * 1024 * 1024) { // Max 5MB
                     alert('Ukuran file terlalu besar! Maksimal 5MB');
                     return;
                 }
@@ -386,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 reader.onload = function(event) {
                     earlyPhotoBase64 = event.target.result;
                     
+                    // Show preview
                     document.getElementById('previewImage').src = earlyPhotoBase64;
                     document.getElementById('photoPreview').classList.remove('hidden');
                     document.getElementById('photoButtonText').textContent = '✓ Foto Terupload';
@@ -439,17 +437,13 @@ async function checkLocation() {
                 userLng = position.coords.longitude;
                 const distance = calculateDistance(SCHOOL_LAT, SCHOOL_LNG, userLat, userLng);
                 
-                const distanceInfo = document.getElementById('distanceInfo');
-                if (distanceInfo) {
-                    distanceInfo.textContent = Math.round(distance);
-                }
+                document.getElementById('distanceInfo').textContent = Math.round(distance);
                 
-                const locationWarning = document.getElementById('locationWarning');
                 if (distance <= MAX_DISTANCE) {
-                    if (locationWarning) locationWarning.classList.add('hidden');
+                    document.getElementById('locationWarning').classList.add('hidden');
                     resolve(true);
                 } else {
-                    if (locationWarning) locationWarning.classList.remove('hidden');
+                    document.getElementById('locationWarning').classList.remove('hidden');
                     reject(`Jarak ${Math.round(distance)}m. Max ${MAX_DISTANCE}m.`);
                 }
             },
@@ -505,7 +499,7 @@ async function openModal() {
         return;
     }
 
-    // Wait for models
+    // FIX: Wait for models dengan timeout yang lebih pendek
     if (!modelsLoaded) {
         document.getElementById('loading').classList.remove('hidden');
         let attempts = 0;
@@ -581,7 +575,7 @@ async function captureAndSubmit() {
     const btn = document.getElementById('captureBtn');
     const progressInfo = document.getElementById('progressInfo');
 
-    // Check validasi pulang cepat
+    // ✅ Check validasi pulang cepat
     if (currentType === 'checkout') {
         const notice = document.getElementById('earlyCheckoutNotice');
         if (!notice.classList.contains('hidden')) {
@@ -591,6 +585,7 @@ async function captureAndSubmit() {
                 return;
             }
             
+            // ✅ VALIDASI FOTO BUKTI
             if (!earlyPhotoBase64) {
                 alert('Harap upload foto bukti surat izin pulang cepat!');
                 return;
@@ -598,7 +593,7 @@ async function captureAndSubmit() {
         }
     }
 
-    btn.disabled = true;
+     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Proses...';
     progressInfo.classList.remove('hidden');
 
@@ -623,10 +618,9 @@ async function captureAndSubmit() {
         const photo = canvas.toDataURL('image/jpeg', 0.8);
         const faceDescriptor = Array.from(detection.descriptor);
         
-        // Fix: Gunakan routes yang sudah didefinisikan di awal
         const url = currentType === 'checkin' 
-            ? ATTENDANCE_ROUTES.checkin 
-            : ATTENDANCE_ROUTES.checkout;
+            ? '{{ route("attendance.checkin") }}' 
+            : '{{ route("attendance.checkout") }}';
 
         const requestData = {
             face_descriptor: faceDescriptor,
@@ -635,10 +629,10 @@ async function captureAndSubmit() {
             longitude: userLng
         };
 
-        // Tambahkan early_reason dan early_photo
+        // ✅ Tambahkan early_reason dan early_photo
         if (currentType === 'checkout' && !document.getElementById('earlyCheckoutNotice').classList.contains('hidden')) {
             requestData.early_reason = document.getElementById('earlyReason').value.trim();
-            requestData.early_photo = earlyPhotoBase64;
+            requestData.early_photo = earlyPhotoBase64; // ✅ Kirim foto bukti
         }
 
         const response = await fetch(url, {
@@ -651,30 +645,11 @@ async function captureAndSubmit() {
             body: JSON.stringify(requestData)
         });
 
-        // Handle response dengan error handling yang lebih baik
-        let result;
-        try {
-            // Cek jika response tidak OK, baca text dulu untuk debug
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Server Error Response:', errorText);
-                try {
-                    result = JSON.parse(errorText);
-                } catch {
-                    throw new Error('Server error: ' + errorText || 'Gagal memproses response');
-                }
-            } else {
-                result = await response.json();
-            }
-        } catch (jsonError) {
-            console.error('JSON Parse Error:', jsonError);
-            const text = await response.text().catch(() => 'Tidak dapat membaca response');
-            throw new Error('Server error: ' + text || 'Gagal memproses response');
-        }
+        const result = await response.json();
 
         if (result.requires_reason || result.requires_photo) {
             document.getElementById('earlyCheckoutNotice').classList.remove('hidden');
-            document.getElementById('minCheckoutTime').textContent = result.min_time || '16:00';
+            document.getElementById('minCheckoutTime').textContent = result.min_time;
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
             progressInfo.classList.add('hidden');
@@ -682,29 +657,15 @@ async function captureAndSubmit() {
         }
 
         if (!response.ok || !result.success) {
-            const errorMsg = result.message || result.error || 'Gagal absen';
-            console.error('Checkin Error:', result);
-            throw new Error(errorMsg);
+            throw new Error(result.message || 'Gagal absen');
         }
         
         alert(result.message);
         closeModal();
-        
-        // Refresh Livewire component - gunakan Livewire.emit atau reload
-        if (typeof Livewire !== 'undefined' && Livewire.find) {
-            const component = Livewire.find(document.querySelector('[wire\\:id]')?.getAttribute('wire:id'));
-            if (component) {
-                component.call('refreshData');
-            }
-        }
-        // Reload untuk update data terbaru
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
+        window.location.reload();
     } catch (error) {
-        console.error('Checkin Error Details:', error);
-        console.error('Error Stack:', error.stack);
-        alert('Error: ' + (error.message || error.toString()));
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
         progressInfo.classList.add('hidden');
@@ -728,25 +689,18 @@ function closeModal() {
     document.getElementById('captureBtn').disabled = true;
     document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
     document.getElementById('progressInfo').classList.add('hidden');
-    const earlyReason = document.getElementById('earlyReason');
-    if (earlyReason) {
-        earlyReason.value = '';
-        document.getElementById('reasonLength').textContent = '0';
-    }
+    document.getElementById('earlyReason').value = '';
+    document.getElementById('reasonLength').textContent = '0';
     removeEarlyPhoto();
-}
 
-// Close modal when clicking outside
-document.getElementById('cameraModal')?.addEventListener('click', function(e) {
+    document.getElementById('cameraModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeModal();
     }
 });
 
-// Check location on page load
 window.addEventListener('load', () => {
     checkLocation().catch(() => {});
 });
 </script>
-@endpush
-</div>
+@endsection

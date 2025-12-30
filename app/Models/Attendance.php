@@ -29,13 +29,16 @@ class Attendance extends Model
         'check_out' => 'datetime:H:i',
     ];
 
+    // Eager loading default untuk mengurangi N+1 queries
+    protected $with = [];
+
     // Relationships
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // Scopes
+    // Scopes - OPTIMIZED dengan index
     public function scopeToday($query)
     {
         return $query->whereDate('date', today());

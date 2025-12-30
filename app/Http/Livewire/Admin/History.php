@@ -25,7 +25,10 @@ class History extends Component
     public function mount()
     {
         $this->classes = $this->getAvailableClasses();
-        $this->students = User::students()->approved()->select('id', 'name', 'nisn')->orderBy('name')->get();
+        $this->students = User::students()->approved()
+            ->select('id', 'name', 'nisn')
+            ->orderBy('name')
+            ->get();
     }
 
     public function updatingStartDate()
@@ -73,22 +76,26 @@ class History extends Component
     public function render()
     {
         $query = Attendance::with(['user:id,name,nisn,class'])
-            ->select('id', 'user_id', 'date', 'check_in', 'check_out', 'status');
+            ->select('id', 'user_id', 'date', 'check_in', 'check_out', 'status', 'notes', 'early_checkout_photo');
 
+        // Filter date range
         if ($this->start_date && $this->end_date) {
             $query->whereBetween('date', [$this->start_date, $this->end_date]);
         } else {
             $query->where('date', '>=', now()->subMonth());
         }
 
+        // Filter class
         if ($this->class) {
             $query->whereHas('user', fn($q) => $q->where('class', $this->class));
         }
 
+        // Filter student
         if ($this->student_id) {
             $query->where('user_id', $this->student_id);
         }
 
+        // Filter status
         if ($this->status) {
             $query->where('status', $this->status);
         }

@@ -24,6 +24,21 @@ class Reports extends Component
         $this->classes = $this->getAvailableClasses();
     }
 
+    public function updatedMonth()
+    {
+        $this->dispatchBrowserEvent('report-updated');
+    }
+
+    public function updatedYear()
+    {
+        $this->dispatchBrowserEvent('report-updated');
+    }
+
+    public function updatedClass()
+    {
+        $this->dispatchBrowserEvent('report-updated');
+    }
+
     private function getAvailableClasses()
     {
         $tingkat = [10, 11, 12];
@@ -51,6 +66,7 @@ class Reports extends Component
                 ->select('id', 'name', 'nisn', 'class')
                 ->when($this->class, fn($q) => $q->where('class', $this->class));
 
+            // Eager load attendances untuk mengurangi query
             $allAttendances = Attendance::whereMonth('date', $this->month)
                 ->whereYear('date', $this->year)
                 ->select('user_id', 'status')

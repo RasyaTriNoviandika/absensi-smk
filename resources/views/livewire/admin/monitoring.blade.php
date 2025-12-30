@@ -85,6 +85,7 @@
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pulang</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Notes</th>
+                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Bukti Pulang Cepat</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -125,20 +126,43 @@
                                     <span class="text-gray-400">-</span>
                                 @endif
                             </td>
+                            <td class="px-3 sm:px-6 py-4 text-xs sm:text-sm hidden xl:table-cell">
+                                @if($data['attendance'] && $data['attendance']->early_checkout_photo)
+                                    <button onclick="openPhotoModal('{{ asset('storage/' . $data['attendance']->early_checkout_photo) }}')" 
+                                            class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-image text-lg"></i>
+                                    </button>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                         </tr>
                         
                         <!-- Mobile Notes Row -->
                         @if($data['attendance'] && $data['attendance']->notes)
                             <tr class="lg:hidden bg-blue-50">
-                                <td colspan="6" class="px-3 py-2 text-xs text-gray-700">
+                                <td colspan="7" class="px-3 py-2 text-xs text-gray-700">
                                     <i class="fas fa-sticky-note text-blue-500 mr-1"></i>
                                     <strong>Notes:</strong> {{ $data['attendance']->notes }}
                                 </td>
                             </tr>
                         @endif
+                        
+                        <!-- Mobile Bukti Pulang Cepat Row -->
+                        @if($data['attendance'] && $data['attendance']->early_checkout_photo)
+                            <tr class="xl:hidden bg-orange-50">
+                                <td colspan="7" class="px-3 py-2 text-xs">
+                                    <button onclick="openPhotoModal('{{ asset('storage/' . $data['attendance']->early_checkout_photo) }}')" 
+                                            class="text-orange-600 hover:text-orange-800">
+                                        <i class="fas fa-image mr-1"></i>
+                                        <strong>Bukti Pulang Cepat</strong> - Klik untuk lihat
+                                    </button>
+                                </td>
+                            </tr>
+                        @endif
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-8 text-center text-gray-500 text-sm">
+                            <td colspan="8" class="px-6 py-8 text-center text-gray-500 text-sm">
                                 <i class="fas fa-inbox text-3xl mb-2 text-gray-300"></i>
                                 <p>Tidak ada data siswa</p>
                             </td>
@@ -146,6 +170,16 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 max-w-2xl w-full relative">
+            <button onclick="closePhotoModal()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 z-10">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <img id="photoModalImage" src="" alt="Bukti Pulang Cepat" class="w-full h-auto rounded-lg">
         </div>
     </div>
 
@@ -158,3 +192,25 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function openPhotoModal(imageUrl) {
+    document.getElementById('photoModalImage').src = imageUrl;
+    document.getElementById('photoModal').classList.remove('hidden');
+    document.getElementById('photoModal').classList.add('flex');
+}
+
+function closePhotoModal() {
+    document.getElementById('photoModal').classList.add('hidden');
+    document.getElementById('photoModal').classList.remove('flex');
+}
+
+// Close modal when clicking outside
+document.getElementById('photoModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePhotoModal();
+    }
+});
+</script>
+@endpush
