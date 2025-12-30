@@ -199,96 +199,123 @@
 </div>
 
 <!-- Modal for Camera - OPTIMIZED LOADING + RESPONSIVE -->
-<div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-lg p-4 sm:p-6 max-w-2xl w-full relative max-h-screen overflow-y-auto">
-        <!-- Close Button -->
-        <button onclick="closeModal()" class="absolute top-2 right-2 sm:top-4 sm:right-4 text-gray-500 hover:text-gray-700 z-10">
-            <i class="fas fa-times text-xl sm:text-2xl"></i>
+
+<div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-2 sm:p-4">
+    <div class="bg-white rounded-lg p-3 sm:p-6 w-full max-w-md relative max-h-screen overflow-y-auto">
+        <!-- Close Button - Diperkecil untuk mobile -->
+        <button onclick="closeModal()" class="absolute top-1 right-1 sm:top-3 sm:right-3 text-gray-500 hover:text-gray-700 z-10 p-1 sm:p-2">
+            <i class="fas fa-times text-lg sm:text-xl"></i>
         </button>
 
-        <!-- Status Banner -->
-        <div id="statusBanner" class="mb-4 p-3 sm:p-4 rounded-lg bg-blue-50 border-l-4 border-blue-500">
+        <!-- Status Banner - Diperkecil -->
+        <div id="statusBanner" class="mb-2 sm:mb-4 p-2 sm:p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500">
             <div class="flex items-center">
-                <div class="animate-pulse mr-2 sm:mr-3">
-                    <i class="fas fa-camera text-xl sm:text-2xl text-blue-600"></i>
+                <div class="animate-pulse mr-2">
+                    <i class="fas fa-camera text-base sm:text-xl text-blue-600"></i>
                 </div>
                 <div>
-                    <p class="font-bold text-blue-900 text-sm sm:text-base" id="modalTitle">Absen Masuk</p>
-                    <p class="text-xs sm:text-sm text-blue-700" id="modalSubtitle">Posisikan wajah di depan kamera</p>
+                    <p class="font-bold text-blue-900 text-xs sm:text-sm" id="modalTitle">Absen Masuk</p>
+                    <p class="text-xs text-blue-700 hidden sm:block" id="modalSubtitle">Posisikan wajah</p>
                 </div>
             </div>
         </div>
 
-        <!-- Camera Preview - RESPONSIVE -->
-        <div class="bg-gray-900 rounded-lg overflow-hidden mb-4 relative" style="height: 300px;">
+        <!-- Camera Preview - DIPERKECIL untuk Mobile (250px) -->
+        <div class="bg-gray-900 rounded-lg overflow-hidden mb-2 sm:mb-3 relative" style="height: 250px;">
             <video id="video" autoplay playsinline class="w-full h-full object-cover" style="transform: scaleX(-1);"></video>
             <canvas id="canvas" class="hidden"></canvas>
             
-            <!-- Face Detection Indicator -->
-            <div id="faceDetected" class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 hidden">
-                <div class="bg-green-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg shadow-lg">
-                    <div class="flex items-center text-xs sm:text-sm">
-                        <i class="fas fa-check-circle text-lg sm:text-2xl mr-2 sm:mr-3 flex-shrink-0"></i>
-                        <div>
-                            <p class="font-bold">Wajah Terdeteksi!</p>
-                            <p class="text-xs hidden sm:block">Klik tombol untuk absen</p>
-                        </div>
+            <!-- Face Detection Indicator - Lebih kecil -->
+            <div id="faceDetected" class="absolute top-2 left-2 right-2 hidden">
+                <div class="bg-green-500 text-white px-2 py-1.5 rounded shadow-lg">
+                    <div class="flex items-center text-xs">
+                        <i class="fas fa-check-circle text-sm mr-1.5"></i>
+                        <p class="font-bold">Wajah OK!</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Loading Overlay - OPTIMIZED -->
-            <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+            <!-- Loading Overlay -->
+              <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                 <div class="text-center text-white">
-                    <i class="fas fa-spinner fa-spin text-3xl sm:text-4xl mb-2 sm:mb-3"></i>
-                    <p class="font-semibold text-sm sm:text-base">Memuat Model AI...</p>
-                    <p class="text-xs sm:text-sm text-gray-400 mt-1">Harap tunggu</p>
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p class="font-semibold text-xs">Loading AI...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Instructions - RESPONSIVE -->
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 sm:p-3 mb-4">
-            <p class="text-xs sm:text-sm text-yellow-800 font-semibold mb-2">
-                <i class="fas fa-info-circle mr-1 sm:mr-2"></i>Petunjuk:
+        <!-- Instructions - Compact -->
+       <div class="bg-yellow-50 border border-yellow-200 rounded p-2 mb-2 text-xs">
+            <p class="text-yellow-800 font-semibold mb-1">
+                <i class="fas fa-info-circle mr-1"></i>Tips:
             </p>
-            <ul class="text-xs text-yellow-700 space-y-1 ml-4 sm:ml-6 list-disc">
-                <li>Aktifkan kamera</li>
-                <li>Wajah terlihat jelas</li>
-                <li>Pencahayaan cukup</li>
-                <li>Lepas masker & kacamata</li>
+            <ul class="text-yellow-700 space-y-0.5 ml-4 list-disc">
+                <li>Pastikan Aktifkan Camera & GPS</li>
+                <li>Wajah jelas</li>
+                <li>Cahaya cukup</li>
+                <li>Tanpa masker</li>
             </ul>
         </div>
 
-        <!-- Early Checkout Notice -->
-        <div id="earlyCheckoutNotice" class="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4 mb-4 hidden">
+
+        <!--  TAMBAHAN: Early Checkout Notice dengan Upload Foto -->
+        <div id="earlyCheckoutNotice" class="bg-orange-50 border border-orange-200 rounded p-2 sm:p-3 mb-2 hidden">
             <div class="flex items-start">
-                <i class="fas fa-exclamation-circle text-orange-500 text-lg sm:text-2xl mr-2 sm:mr-3 mt-1 flex-shrink-0"></i>
+                <i class="fas fa-exclamation-circle text-orange-500 text-base sm:text-lg mr-2 mt-0.5"></i>
                 <div class="flex-1">
-                    <p class="font-bold text-orange-900 mb-2 text-sm sm:text-base">Anda Pulang Lebih Awal</p>
-                    <p class="text-xs sm:text-sm text-orange-800 mb-3">Jam minimal: <strong id="minCheckoutTime">16:00</strong>. Isi alasan:</p>
+                    <p class="font-bold text-orange-900 mb-1 text-xs sm:text-sm">Pulang Lebih Awal</p>
+                    <p class="text-xs text-orange-800 mb-2">Minimal: <strong id="minCheckoutTime">16:00</strong></p>
+                    
+                    <!-- Alasan -->
+                    <label class="block text-xs font-semibold text-orange-900 mb-1">1. Alasan:</label>
                     <textarea id="earlyReason" 
-                        class="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
-                        rows="3"
-                        placeholder="Contoh: Izin sakit / Ada keperluan"
+                        class="w-full px-2 py-1.5 border border-orange-300 rounded text-xs mb-2"
+                        rows="2"
+                        placeholder="Contoh: Sakit / Ada keperluan"
                         minlength="10"
                         maxlength="500"></textarea>
-                    <p class="text-xs text-orange-600 mt-1">
+                    <p class="text-xs text-orange-600 mb-2">
                         <span id="reasonLength">0</span>/500 karakter (min 10)
                     </p>
+                    
+                    <!-- ✅ Upload Foto Bukti Surat -->
+                    <label class="block text-xs font-semibold text-orange-900 mb-1">2. Foto Bukti Surat:</label>
+                    <div class="mb-2">
+                        <input type="file" 
+                            id="earlyPhotoInput" 
+                            accept="image/*"
+                            capture="environment"
+                            class="hidden">
+                        <button type="button" 
+                            onclick="document.getElementById('earlyPhotoInput').click()"
+                            class="w-full bg-orange-100 border-2 border-dashed border-orange-300 rounded py-2 text-xs text-orange-700 hover:bg-orange-200">
+                            <i class="fas fa-camera mr-1"></i>
+                            <span id="photoButtonText">Ambil/Upload Foto Surat</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Preview Foto -->
+                    <div id="photoPreview" class="hidden">
+                        <img id="previewImage" class="w-full h-32 object-cover rounded border border-orange-300 mb-1">
+                        <button type="button" 
+                            onclick="removeEarlyPhoto()"
+                            class="text-xs text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash mr-1"></i>Hapus Foto
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Action Button - RESPONSIVE -->
+        <!-- Action Button - Compact -->
         <button id="captureBtn" onclick="captureAndSubmit()" disabled
-            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed text-sm sm:text-base">
-            <i class="fas fa-camera mr-2"></i>Ambil Foto & Absen
+            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 sm:py-3 px-3 sm:px-4 rounded transition disabled:bg-gray-300 disabled:cursor-not-allowed text-xs sm:text-sm">
+            <i class="fas fa-camera mr-1"></i>Ambil Foto & Absen
         </button>
 
         <!-- Progress Info -->
-        <div id="progressInfo" class="mt-3 text-center text-xs sm:text-sm text-gray-600 hidden">
-            <i class="fas fa-spinner fa-spin mr-2"></i>Memproses absensi...
+               <div id="progressInfo" class="mt-2 text-center text-xs text-gray-600 hidden">
+            <i class="fas fa-spinner fa-spin mr-1"></i>Proses...
         </div>
     </div>
 </div>
@@ -318,6 +345,7 @@ let detectionInterval = null;
 let currentType = null;
 let userLat = null;
 let userLng = null;
+let earlyPhotoBase64 = null;
 
 // FIX: OPTIMIZED MODEL LOADING - Load hanya models yang diperlukan
 faceApiScript.onload = async function() {
@@ -338,9 +366,33 @@ faceApiScript.onload = async function() {
     }
 };
 
-// Early reason character counter
 document.addEventListener('DOMContentLoaded', function() {
+    const photoInput = document.getElementById('earlyPhotoInput');
     const earlyReason = document.getElementById('earlyReason');
+    
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) { // Max 5MB
+                    alert('Ukuran file terlalu besar! Maksimal 5MB');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    earlyPhotoBase64 = event.target.result;
+                    
+                    // Show preview
+                    document.getElementById('previewImage').src = earlyPhotoBase64;
+                    document.getElementById('photoPreview').classList.remove('hidden');
+                    document.getElementById('photoButtonText').textContent = '✓ Foto Terupload';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
     if (earlyReason) {
         earlyReason.addEventListener('input', function() {
             document.getElementById('reasonLength').textContent = this.value.length;
@@ -350,6 +402,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function removeEarlyPhoto() {
+    earlyPhotoBase64 = null;
+    document.getElementById('earlyPhotoInput').value = '';
+    document.getElementById('photoPreview').classList.add('hidden');
+    document.getElementById('photoButtonText').textContent = 'Ambil/Upload Foto Surat';
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -516,7 +575,7 @@ async function captureAndSubmit() {
     const btn = document.getElementById('captureBtn');
     const progressInfo = document.getElementById('progressInfo');
 
-    // Check early reason
+    // ✅ Check validasi pulang cepat
     if (currentType === 'checkout') {
         const notice = document.getElementById('earlyCheckoutNotice');
         if (!notice.classList.contains('hidden')) {
@@ -525,11 +584,17 @@ async function captureAndSubmit() {
                 alert('Harap isi alasan minimal 10 karakter!');
                 return;
             }
+            
+            // ✅ VALIDASI FOTO BUKTI
+            if (!earlyPhotoBase64) {
+                alert('Harap upload foto bukti surat izin pulang cepat!');
+                return;
+            }
         }
     }
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+     btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Proses...';
     progressInfo.classList.remove('hidden');
 
     try {
@@ -541,7 +606,7 @@ async function captureAndSubmit() {
         if (!detection) {
             alert('Wajah tidak terdeteksi! Coba lagi.');
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+            btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
             progressInfo.classList.add('hidden');
             return;
         }
@@ -564,9 +629,10 @@ async function captureAndSubmit() {
             longitude: userLng
         };
 
-        // Add early reason jika ada
+        // ✅ Tambahkan early_reason dan early_photo
         if (currentType === 'checkout' && !document.getElementById('earlyCheckoutNotice').classList.contains('hidden')) {
             requestData.early_reason = document.getElementById('earlyReason').value.trim();
+            requestData.early_photo = earlyPhotoBase64; // ✅ Kirim foto bukti
         }
 
         const response = await fetch(url, {
@@ -581,12 +647,11 @@ async function captureAndSubmit() {
 
         const result = await response.json();
 
-        if (result.requires_reason) {
-            // Show early checkout form
+        if (result.requires_reason || result.requires_photo) {
             document.getElementById('earlyCheckoutNotice').classList.remove('hidden');
             document.getElementById('minCheckoutTime').textContent = result.min_time;
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+            btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
             progressInfo.classList.add('hidden');
             return;
         }
@@ -602,7 +667,7 @@ async function captureAndSubmit() {
         console.error('Error:', error);
         alert('Error: ' + error.message);
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+        btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
         progressInfo.classList.add('hidden');
     }
 }
@@ -622,13 +687,13 @@ function closeModal() {
     modal.classList.remove('flex');
     
     document.getElementById('captureBtn').disabled = true;
-    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-2"></i>Ambil Foto & Absen';
+    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
     document.getElementById('progressInfo').classList.add('hidden');
     document.getElementById('earlyReason').value = '';
     document.getElementById('reasonLength').textContent = '0';
-}
+    removeEarlyPhoto();
 
-document.getElementById('cameraModal').addEventListener('click', function(e) {
+    document.getElementById('cameraModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeModal();
     }

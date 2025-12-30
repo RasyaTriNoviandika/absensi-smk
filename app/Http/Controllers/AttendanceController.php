@@ -12,11 +12,10 @@ use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
-    public function checkIn(Request $request)
+     public function checkIn(Request $request)
     {
         $user = auth()->user();
         
-        // Check apakah sudah check-in hari ini
         if (Attendance::where('user_id', $user->id)
             ->whereDate('date', today())
             ->whereNotNull('check_in')
@@ -34,10 +33,9 @@ class AttendanceController extends Controller
             'longitude' => 'required|numeric',
         ]);
 
-        // Validasi lokasi
         $schoolLat = -6.2706589;
         $schoolLng = 106.9593685;
-        $maxDistance = 50000; // 50km untuk development, ganti ke 100 untuk production
+        $maxDistance = 50000;
         
         $distance = $this->calculateDistance(
             $schoolLat, 
@@ -53,7 +51,6 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Verify face
         $storedDescriptor = $user->face_descriptor;
         if (!is_array($storedDescriptor)) {
             $storedDescriptor = json_decode($storedDescriptor, true);
@@ -68,7 +65,6 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Save photo
         try {
             $photoPath = $this->saveBase64Image($validated['photo'], 'checkin');
         } catch (\Exception $e) {
@@ -79,21 +75,15 @@ class AttendanceController extends Controller
             ], 500);
         }
 
-        // FIX: Gunakan Carbon::now() untuk waktu real-time yang akurat
         $checkInTime = Carbon::now('Asia/Jakarta');
         $limitTime = Setting::get('check_in_time_limit', '07:30');
-        
-        // Parse limit time ke Carbon untuk hari ini
         $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
-        
-        // Bandingkan waktu check-in dengan batas waktu
         $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
 
-        // Create attendance record dengan format datetime yang benar
         $attendance = Attendance::create([
             'user_id' => $user->id,
-            'date' => $checkInTime->toDateString(), // Format: Y-m-d
-            'check_in' => $checkInTime->toTimeString(), // Format: H:i:s
+            'date' => $checkInTime->toDateString(),
+            'check_in' => $checkInTime->toTimeString(),
             'check_in_status' => $status,
             'check_in_photo' => $photoPath,
             'status' => $status,
@@ -132,22 +122,33 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // FIX: Gunakan Carbon untuk waktu real-time
         $currentTime = Carbon::now('Asia/Jakarta');
         $minCheckoutTime = Setting::get('check_out_time_min', '16:00');
         $minCheckoutDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($minCheckoutTime);
         
-        // Jika pulang lebih awal, wajib isi alasan
         $isEarlyCheckout = $currentTime->lessThan($minCheckoutDateTime);
         
-        if ($isEarlyCheckout && !$request->filled('early_reason')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda pulang lebih awal dari jam ' . $minCheckoutTime . '. Harap isi alasan pulang cepat.',
-                'requires_reason' => true,
-                'min_time' => $minCheckoutTime,
-                'current_time' => $currentTime->format('H:i')
-            ], 400);
+        // Validasi berbeda untuk pulang cepat
+        if ($isEarlyCheckout) {
+            // Pulang cepat WAJIB isi reason DAN upload foto bukti
+            if (!$request->filled('early_reason')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda pulang lebih awal. Harap isi alasan pulang cepat.',
+                    'requires_reason' => true,
+                    'min_time' => $minCheckoutTime,
+                    'current_time' => $currentTime->format('H:i')
+                ], 400);
+            }
+
+            // Cek foto bukti surat
+            if (!$request->filled('early_photo')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Upload foto bukti surat izin pulang cepat.',
+                    'requires_photo' => true
+                ], 400);
+            }
         }
 
         $validated = $request->validate([
@@ -156,6 +157,7 @@ class AttendanceController extends Controller
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'early_reason' => $isEarlyCheckout ? 'required|string|min:10|max:500' : 'nullable|string|max:500',
+            'early_photo' => $isEarlyCheckout ? 'required|string' : 'nullable|string', // ✅ TAMBAHAN
         ]);
 
         // Validasi lokasi
@@ -196,7 +198,7 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Save photo
+        // Save checkout photo
         try {
             $photoPath = $this->saveBase64Image($validated['photo'], 'checkout');
         } catch (\Exception $e) {
@@ -207,21 +209,31 @@ class AttendanceController extends Controller
             ], 500);
         }
 
-        // FIX: Update attendance dengan waktu real-time dan notes
         $updateData = [
-            'check_out' => $currentTime->toTimeString(), // Format: H:i:s
+            'check_out' => $currentTime->toTimeString(),
             'check_out_photo' => $photoPath,
         ];
 
-        // FIX: Simpan notes untuk early checkout
+        // Simpan foto bukti surat dan notes
         if ($isEarlyCheckout && isset($validated['early_reason'])) {
             $updateData['notes'] = 'Pulang cepat (' . $currentTime->format('H:i') . '): ' . $validated['early_reason'];
+            
+            // Save early checkout photo bukti
+            if (!empty($validated['early_photo'])) {
+                try {
+                    $earlyPhotoPath = $this->saveBase64Image($validated['early_photo'], 'early_letter');
+                    $updateData['early_checkout_photo'] = $earlyPhotoPath;
+                } catch (\Exception $e) {
+                    Log::error('Early photo save failed: ' . $e->getMessage());
+                    // Continue tanpa foto bukti jika gagal
+                }
+            }
         }
 
         $attendance->update($updateData);
 
         $message = $isEarlyCheckout 
-            ? 'Absen pulang berhasil. Alasan pulang cepat telah tercatat.'
+            ? 'Absen pulang berhasil. Alasan dan bukti surat telah tercatat.'
             : 'Absen pulang berhasil! Hati-hati di jalan.';
 
         return response()->json([
@@ -234,7 +246,7 @@ class AttendanceController extends Controller
 
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
-        $R = 6371e3; // Earth radius in meters
+        $R = 6371e3;
         $φ1 = deg2rad($lat1);
         $φ2 = deg2rad($lat2);
         $Δφ = deg2rad($lat2 - $lat1);
@@ -243,7 +255,7 @@ class AttendanceController extends Controller
         $a = sin($Δφ/2) * sin($Δφ/2) +
              cos($φ1) * cos($φ2) *
              sin($Δλ/2) * sin($Δλ/2);
-        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        $c = 2 * atan2(sqrt($a), sqrt(1-a));
 
         return $R * $c;
     }
@@ -286,4 +298,5 @@ class AttendanceController extends Controller
         
         return view('student.history', compact('attendances'));
     }
+    
 }

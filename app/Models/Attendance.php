@@ -18,6 +18,7 @@ class Attendance extends Model
         'check_in_photo',
         'check_out',
         'check_out_photo',
+        'early_checkout_photo', 
         'status',
         'notes',
     ];

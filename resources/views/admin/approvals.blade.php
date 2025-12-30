@@ -1,8 +1,3 @@
-@extends('layouts.admin')
-
-@section('title', 'Approval Siswa')
-
-@section('content')
 <div class="p-4 sm:p-6 lg:p-8">
     <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Approval Siswa</h1>
@@ -62,23 +57,19 @@
                                 </td>
                                 <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-sm">
                                     <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                                        <form action="{{ route('admin.approve', $user) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" 
-                                                onclick="return confirm('Approve siswa {{ $user->name }}?')"
-                                                class="w-full sm:w-auto px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold transition-colors">
-                                                <i class="fas fa-check mr-1"></i>Approve
-                                            </button>
-                                        </form>
+                                        <button wire:click="approve({{ $user->id }})" 
+                                                wire:loading.attr="disabled"
+                                                wire:confirm="Approve siswa {{ $user->name }}?"
+                                                class="w-full sm:w-auto px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold transition-colors disabled:bg-gray-300">
+                                            <i class="fas fa-check mr-1"></i>Approve
+                                        </button>
 
-                                        <form action="{{ route('admin.reject', $user) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" 
-                                                onclick="return confirm('Tolak pendaftaran {{ $user->name }}?')"
-                                                class="w-full sm:w-auto px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors">
-                                                <i class="fas fa-times mr-1"></i>Reject
-                                            </button>
-                                        </form>
+                                        <button wire:click="reject({{ $user->id }})" 
+                                                wire:loading.attr="disabled"
+                                                wire:confirm="Tolak pendaftaran {{ $user->name }}?"
+                                                class="w-full sm:w-auto px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors disabled:bg-gray-300">
+                                            <i class="fas fa-times mr-1"></i>Reject
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -100,5 +91,12 @@
             </div>
         @endif
     </div>
+
+    <!-- Loading Overlay -->
+    <div wire:loading class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
+            <p class="text-gray-800 font-semibold">Memproses...</p>
+        </div>
+    </div>
 </div>
-@endsection

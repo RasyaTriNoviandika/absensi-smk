@@ -1,64 +1,56 @@
-@extends('layouts.admin')
-
-@section('title', 'Monitoring Absensi')
-
-@section('content')
-<div class="p-4 sm:p-6 lg:p-8">
+<div class="p-4 sm:p-6 lg:p-8" wire:poll.60s>
     <div class="mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Monitoring Absensi Real-time</h1>
         <p class="text-sm sm:text-base text-gray-600">Pantau kehadiran siswa hari ini</p>
     </div>
 
-    <!-- Filters - RESPONSIVE -->
+    <!-- Filters -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <form method="GET" class="space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
-                    <input type="date" 
-                           name="date" 
-                           value="{{ request('date', $date) }}"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Kelas</label>
-                    <select name="class" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option value="">Semua Kelas</option>
-                        @foreach($classes as $c)
-                            <option value="{{ $c }}" {{ request('class') == $c ? 'selected' : '' }}>{{ $c }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                    <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option value="">Semua Status</option>
-                        <option value="hadir" {{ request('status') == 'hadir' ? 'selected' : '' }}>Hadir</option>
-                        <option value="terlambat" {{ request('status') == 'terlambat' ? 'selected' : '' }}>Terlambat</option>
-                        <option value="alpha" {{ request('status') == 'alpha' ? 'selected' : '' }}>Alpha</option>
-                    </select>
-                </div>
-
-                <div class="flex items-end">
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
-                        <i class="fas fa-search mr-2"></i>Filter
-                    </button>
-                </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
+                <input type="date" 
+                       wire:model="date"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
             </div>
-        </form>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kelas</label>
+                <select wire:model="class" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Semua Kelas</option>
+                    @foreach($classes as $c)
+                        <option value="{{ $c }}">{{ $c }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select wire:model="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Semua Status</option>
+                    <option value="hadir">Hadir</option>
+                    <option value="terlambat">Terlambat</option>
+                    <option value="alpha">Alpha</option>
+                </select>
+            </div>
+
+            <div class="flex items-end">
+                <button wire:click="loadData" 
+                        wire:loading.attr="disabled"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm disabled:bg-gray-300">
+                    <span wire:loading.remove wire:target="loadData">
+                        <i class="fas fa-search mr-2"></i>Filter
+                    </span>
+                    <span wire:loading wire:target="loadData">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
+                    </span>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- Summary Stats - RESPONSIVE -->
+    <!-- Summary Stats -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        @php
-            $total = $monitoringData->count();
-            $hadir = $monitoringData->where('status', 'hadir')->count();
-            $terlambat = $monitoringData->where('status', 'terlambat')->count();
-            $alpha = $monitoringData->where('status', 'alpha')->count();
-        @endphp
-
         <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 border-l-4 border-gray-500">
             <p class="text-xs sm:text-sm text-gray-600 mb-1">Total</p>
             <p class="text-xl sm:text-2xl font-bold text-gray-800">{{ $total }}</p>
@@ -80,7 +72,7 @@
         </div>
     </div>
 
-    <!-- Table - RESPONSIVE dengan Notes -->
+    <!-- Table -->
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -93,7 +85,6 @@
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pulang</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Notes</th>
-                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -134,24 +125,12 @@
                                     <span class="text-gray-400">-</span>
                                 @endif
                             </td>
-                            
-                            <!-- ✅ Kolom Foto Bukti -->
-                            <td class="px-3 sm:px-6 py-4">
-                                @if($data['attendance'] && $data['attendance']->early_checkout_photo)
-                                    <button onclick="viewPhoto('{{ asset('storage/' . $data['attendance']->early_checkout_photo) }}', '{{ $data['student']->name }}')"
-                                        class="text-blue-600 hover:text-blue-800">
-                                        <i class="fas fa-image text-lg"></i>
-                                    </button>
-                                @else
-                                    <span class="text-gray-400 text-xs">-</span>
-                                @endif
-                            </td>
                         </tr>
                         
                         <!-- Mobile Notes Row -->
                         @if($data['attendance'] && $data['attendance']->notes)
                             <tr class="lg:hidden bg-blue-50">
-                                <td colspan="8" class="px-3 py-2 text-xs text-gray-700">
+                                <td colspan="6" class="px-3 py-2 text-xs text-gray-700">
                                     <i class="fas fa-sticky-note text-blue-500 mr-1"></i>
                                     <strong>Notes:</strong> {{ $data['attendance']->notes }}
                                 </td>
@@ -159,7 +138,7 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-8 text-center text-gray-500 text-sm">
+                            <td colspan="7" class="px-6 py-8 text-center text-gray-500 text-sm">
                                 <i class="fas fa-inbox text-3xl mb-2 text-gray-300"></i>
                                 <p>Tidak ada data siswa</p>
                             </td>
@@ -169,39 +148,13 @@
             </table>
         </div>
     </div>
-</div>
 
-{{-- Preview bukti foto --}}
-<div id="photoModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-4" onclick="closePhotoModal()">
-    <div class="bg-white rounded-lg p-4 max-w-2xl w-full" onclick="event.stopPropagation()">
-        <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-bold text-gray-800">Foto Bukti Surat - <span id="studentName"></span></h3>
-            <button onclick="closePhotoModal()" class="text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-        </div>
-        <img id="modalPhoto" class="w-full h-auto rounded" alt="Foto Bukti">
-        <div class="mt-3 flex justify-end">
-            <a id="downloadPhoto" download class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
-                <i class="fas fa-download mr-2"></i>Download
-            </a>
+    <!-- Loading Overlay -->
+    <div wire:loading wire:target="loadData,date,class,status" 
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
+            <p class="text-gray-800 font-semibold">Memuat data...</p>
         </div>
     </div>
 </div>
-@push('scripts')
-<script>
-function viewPhoto(photoUrl, studentName) {
-    document.getElementById('modalPhoto').src = photoUrl;
-    document.getElementById('studentName').textContent = studentName;
-    document.getElementById('downloadPhoto').href = photoUrl;
-    document.getElementById('photoModal').classList.remove('hidden');
-    document.getElementById('photoModal').classList.add('flex');
-}
-
-function closePhotoModal() {
-    document.getElementById('photoModal').classList.add('hidden');
-    document.getElementById('photoModal').classList.remove('flex');
-}
-</script>
-@endpush
-@endsection
