@@ -1,4 +1,5 @@
 <?php
+// app/Http/Livewire/Student/Dashboard.php
 
 namespace App\Http\Livewire\Student;
 
@@ -11,7 +12,8 @@ class Dashboard extends Component
     public $stats;
     public $recentAttendances;
 
-    protected $listeners = ['attendanceUpdated' => 'refreshData'];
+    // Listener untuk refresh dari JavaScript
+    protected $listeners = ['attendanceSubmitted' => 'refreshData'];
 
     public function mount()
     {
@@ -22,10 +24,8 @@ class Dashboard extends Component
     {
         $user = auth()->user();
         
-        // Today's attendance
         $this->todayAttendance = $user->todayAttendance();
         
-        // This month statistics - Optimized dengan select minimal
         $thisMonthAttendances = $user->attendances()
             ->whereMonth('date', now()->month)
             ->whereYear('date', now()->year)
@@ -38,7 +38,6 @@ class Dashboard extends Component
             'alpha' => $thisMonthAttendances->where('status', 'alpha')->count(),
         ];
 
-        // Recent attendances - Hanya ambil 7 terakhir
         $this->recentAttendances = $user->attendances()
             ->select('id', 'date', 'check_in', 'check_out', 'status')
             ->orderBy('date', 'desc')

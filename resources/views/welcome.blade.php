@@ -30,7 +30,7 @@
                    <img 
                     src="{{ asset('img/logo.png') }}"
                     class="w-9 h-9 mr-3 object-contain" >
-                    <span class="font-semibold text-gray-800">Absensi SMK</span>
+                    <span class="font-semibold text-gray-800">Absensi SMKN 9 Kota Bekasi</span>
                 </div>
                 <div class="flex space-x-2">
                     <a href="{{ route('login') }}" class="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors">
@@ -53,7 +53,7 @@
             <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 mb-4 leading-tight">
                 Absensi dengan<br class="sm:hidden"> Pengenalan Wajah
             </h1>
-            <p class="text-base sm:text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            <p class="text-base font sm:text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
              Scan wajah, Absen tercatat otomatis.
             </p>
             <div class="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">

@@ -396,18 +396,21 @@ class AdminController extends Controller
 
     public function updateSettings(Request $request)
     {
-        $validated = $request->validate([
-            'check_in_time_limit' => 'required|date_format:H:i',
-            'check_out_time_min' => 'required|date_format:H:i',
-            'school_name' => 'required|string|max:255',
-            'face_match_threshold' => 'required|numeric|min:0|max:1',
-        ]);
+    $validated = $request->validate([
+        'check_in_time_limit' => 'required|date_format:H:i',
+        'check_out_time_min' => 'required|date_format:H:i',
+        'school_name' => 'required|string|max:255',
+        'school_latitude' => 'required|numeric|between:-90,90',
+        'school_longitude' => 'required|numeric|between:-180,180',
+        'max_distance_meters' => 'required|integer|min:10|max:1000',
+        'face_match_threshold' => 'required|numeric|min:0.3|max:0.9',
+    ]);
 
-        foreach ($validated as $key => $value) {
-            Setting::set($key, $value);
-        }
+    foreach ($validated as $key => $value) {
+        Setting::set($key, $value);
+    }
 
-        return back()->with('success', 'Pengaturan berhasil diupdate.');
+    return back()->with('success', 'Pengaturan berhasil diupdate.');
     }
 
     private function getAvailableClasses()

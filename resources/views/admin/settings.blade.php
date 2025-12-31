@@ -64,6 +64,64 @@
 
                 <hr class="my-6">
 
+                <!-- ✅ TAMBAHAN: Koordinat & Radius -->
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Lokasi Sekolah</h3>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>Latitude
+                    </label>
+                    <input type="text" 
+                           name="school_latitude" 
+                           value="{{ $settings['school_latitude']->value ?? '-6.2706589' }}"
+                           required
+                           pattern="-?\d+\.?\d*"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Contoh: -6.2706589 (Gunakan Google Maps untuk mendapatkan koordinat)</p>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>Longitude
+                    </label>
+                    <input type="text" 
+                           name="school_longitude" 
+                           value="{{ $settings['school_longitude']->value ?? '106.9593685' }}"
+                           required
+                           pattern="-?\d+\.?\d*"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Contoh: 106.9593685</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-ruler text-blue-600 mr-2"></i>Radius Maksimal (meter)
+                    </label>
+                    <input type="number" 
+                           name="max_distance_meters" 
+                           value="{{ $settings['max_distance_meters']->value ?? '100' }}"
+                           required
+                           min="10"
+                           max="1000"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">
+                        Jarak maksimal siswa dari sekolah untuk bisa absen (Recommended: 100 meter)
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
+                    <p class="text-sm text-blue-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>Cara mendapatkan koordinat:</strong><br>
+                        1. Buka Google Maps<br>
+                        2. Klik kanan pada lokasi sekolah<br>
+                        3. Pilih koordinat yang muncul (format: -6.2706589, 106.9593685)<br>
+                        4. Copy dan paste ke form ini
+                    </p>
+                </div>
+
+                <hr class="my-6">
+
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Face Recognition</h3>
 
                 <div class="mb-6">
@@ -74,12 +132,12 @@
                            name="face_match_threshold" 
                            value="{{ $settings['face_match_threshold']->value ?? '0.6' }}"
                            step="0.01"
-                           min="0"
-                           max="1"
+                           min="0.3"
+                           max="0.9"
                            required
                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <p class="text-xs text-gray-500 mt-1">
-                        Nilai 0-1. Semakin kecil = semakin strict. Recommended: 0.6
+                        Nilai 0.3-0.9. Semakin kecil = semakin strict. <strong>Recommended: 0.6</strong>
                     </p>
                 </div>
 
