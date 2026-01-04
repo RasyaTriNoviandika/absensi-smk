@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\AttendanceExport;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Helpers\PhoneHelper; // ✅ FIXED: Use centralized helper
 
 class AdminController extends Controller
 {
+    // ... (dashboard, approvals, monitoring methods sama seperti sebelumnya)
+
     public function dashboard()
     {
         $date = today()->format('Y-m-d');
@@ -133,52 +136,25 @@ class AdminController extends Controller
         return view('admin.students-edit', compact('user', 'classes'));
     }
 
-    // FIXED: Added phone normalization
+    // ✅ FIXED: Use PhoneHelper
     public function updateStudent(Request $request, User $user)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'nisn' => 'required|digits:10|unique:users,nisn,' . $user->id,
             'class' => 'required|string',
-            'phone' => [
-                'nullable',
-                'string',
-                'min:10',
-                'max:15',
-                'unique:users,phone,' . $user->id,
-                'regex:/^(\+62|62|0)8[0-9]{8,13}$/'
-            ],
+            'phone' => PhoneHelper::validationRule($user->id), // ✅ FIXED
             'email' => 'nullable|email|unique:users,email,' . $user->id,
         ]);
 
-        // FIXED: Normalize phone number
+        // ✅ FIXED: Normalize phone using helper
         if (!empty($validated['phone'])) {
-            $validated['phone'] = $this->normalizePhoneNumber($validated['phone']);
+            $validated['phone'] = PhoneHelper::normalize($validated['phone']);
         }
 
         $user->update($validated);
 
         return redirect()->route('admin.students')->with('success', 'Data siswa berhasil diupdate.');
-    }
-
-    // FIXED: Added normalization method
-    private function normalizePhoneNumber($phone)
-    {
-        // Remove all spaces and dashes
-        $phone = preg_replace('/[\s\-]/', '', $phone);
-        
-        // Convert +628xxx to 08xxx
-        if (strpos($phone, '+62') === 0) {
-            return '0' . substr($phone, 3);
-        }
-        
-        // Convert 628xxx to 08xxx
-        if (strpos($phone, '62') === 0) {
-            return '0' . substr($phone, 2);
-        }
-        
-        // Already in 08xxx format
-        return $phone;
     }
 
     public function deleteStudent(User $user)
@@ -218,13 +194,11 @@ class AdminController extends Controller
 
         $students = $students->get();
 
-        // Get attendances for the date
         $attendances = Attendance::whereDate('date', $date)
             ->with('user')
             ->get()
             ->keyBy('user_id');
 
-        // Build monitoring data
         $monitoringData = $students->map(function($student) use ($attendances) {
             $attendance = $attendances->get($student->id);
             
@@ -237,7 +211,6 @@ class AdminController extends Controller
             ];
         });
 
-        // Filter by status if provided
         if ($status) {
             $monitoringData = $monitoringData->filter(function($item) use ($status) {
                 return $item['status'] === $status;
@@ -300,20 +273,16 @@ class AdminController extends Controller
 
         $students = $query->get();
 
-        // Calculate attendance for each student
         $reportData = $students->map(function($student) use ($month, $year) {
             $attendances = Attendance::where('user_id', $student->id)
                 ->whereMonth('date', $month)
                 ->whereYear('date', $year)
                 ->get();
 
-            // FIXED: Better calculation (though still needs work day calculation)
             $totalDays = Carbon::createFromDate($year, $month, 1)->daysInMonth;
             $hadir = $attendances->where('status', 'hadir')->count();
             $terlambat = $attendances->where('status', 'terlambat')->count();
             
-            // Note: This still counts weekends/holidays as alpha
-            // For production, you should implement a school calendar
             $alpha = $totalDays - ($hadir + $terlambat);
             $percentage = $totalDays > 0 ? (($hadir + $terlambat) / $totalDays) * 100 : 0;
 
@@ -331,12 +300,10 @@ class AdminController extends Controller
         return view('admin.reports', compact('reportData', 'month', 'year', 'classes'));
     }
 
-    // FIXED: Export with proper filters
     public function exportExcel(Request $request)
     {
         $filters = [];
         
-        // Handle month/year filter (for reports page)
         if ($request->filled('month') && $request->filled('year')) {
             $startDate = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
             $endDate = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
@@ -344,13 +311,11 @@ class AdminController extends Controller
             $filters['start_date'] = $startDate->format('Y-m-d');
             $filters['end_date'] = $endDate->format('Y-m-d');
         }
-        // Handle date range filter (for history page)
         elseif ($request->filled('start_date') && $request->filled('end_date')) {
             $filters['start_date'] = $request->start_date;
             $filters['end_date'] = $request->end_date;
         }
         
-        // Handle class filter
         if ($request->filled('class')) {
             $filters['class'] = $request->class;
         }
@@ -359,19 +324,16 @@ class AdminController extends Controller
         return Excel::download(new AttendanceExport($filters), $filename);
     }
 
-    // FIXED: Export with proper filters
     public function exportPdf(Request $request)
     {
         $query = Attendance::with('user');
 
-        // Handle month/year filter (for reports page)
         if ($request->filled('month') && $request->filled('year')) {
             $startDate = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
             $endDate = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
             
             $query->whereBetween('date', [$startDate, $endDate]);
         }
-        // Handle date range filter (for history page)
         elseif ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('date', [$request->start_date, $request->end_date]);
         }
@@ -396,21 +358,21 @@ class AdminController extends Controller
 
     public function updateSettings(Request $request)
     {
-    $validated = $request->validate([
-        'check_in_time_limit' => 'required|date_format:H:i',
-        'check_out_time_min' => 'required|date_format:H:i',
-        'school_name' => 'required|string|max:255',
-        'school_latitude' => 'required|numeric|between:-90,90',
-        'school_longitude' => 'required|numeric|between:-180,180',
-        'max_distance_meters' => 'required|integer|min:10|max:1000',
-        'face_match_threshold' => 'required|numeric|min:0.3|max:0.9',
-    ]);
+        $validated = $request->validate([
+            'check_in_time_limit' => 'required|date_format:H:i',
+            'check_out_time_min' => 'required|date_format:H:i',
+            'school_name' => 'required|string|max:255',
+            'school_latitude' => 'required|numeric|between:-90,90',
+            'school_longitude' => 'required|numeric|between:-180,180',
+            'max_distance_meters' => 'required|integer|min:10|max:1000',
+            'face_match_threshold' => 'required|numeric|min:0.3|max:0.9',
+        ]);
 
-    foreach ($validated as $key => $value) {
-        Setting::set($key, $value);
-    }
+        foreach ($validated as $key => $value) {
+            Setting::set($key, $value);
+        }
 
-    return back()->with('success', 'Pengaturan berhasil diupdate.');
+        return back()->with('success', 'Pengaturan berhasil diupdate.');
     }
 
     private function getAvailableClasses()

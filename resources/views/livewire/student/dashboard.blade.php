@@ -316,12 +316,9 @@
 
 @push('scripts')
 <script>
-// Define routes di awal - gunakan URL langsung untuk menghindari parsing error
-// Fix: Gunakan URL langsung tanpa route helper untuk menghindari error parsing
-const ATTENDANCE_ROUTES = {
-    checkin: '/attendance/checkin',
-    checkout: '/attendance/checkout'
-};
+// ✅ FIXED: Hapus definisi routes hardcode, pakai route helper
+const CHECKIN_URL = '{{ route("attendance.checkin") }}';
+const CHECKOUT_URL = '{{ route("attendance.checkout") }}';
 
 // Preload face-api in background
 const faceApiScript = document.createElement('script');
@@ -339,9 +336,8 @@ setInterval(() => {
 }, 1000);
 
 // Face recognition variables
-const SCHOOL_LAT = -6.2706589; 
-const SCHOOL_LNG = 106.9593685; 
-const MAX_DISTANCE = 50000; // 50km untuk dev
+// ✅ FIXED: Hapus hardcoded SCHOOL_LAT/LNG dan MAX_DISTANCE
+// Backend yang akan validate GPS coordinates
 
 let modelsLoaded = false;
 let stream = null;
@@ -413,19 +409,7 @@ function removeEarlyPhoto() {
     document.getElementById('photoButtonText').textContent = 'Ambil/Upload Foto Surat';
 }
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-}
-
+// ✅ FIXED: Simplified - hanya get GPS, tidak validate di frontend
 async function checkLocation() {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -437,23 +421,22 @@ async function checkLocation() {
             (position) => {
                 userLat = position.coords.latitude;
                 userLng = position.coords.longitude;
-                const distance = calculateDistance(SCHOOL_LAT, SCHOOL_LNG, userLat, userLng);
                 
-                const distanceInfo = document.getElementById('distanceInfo');
-                if (distanceInfo) {
-                    distanceInfo.textContent = Math.round(distance);
-                }
-                
-                const locationWarning = document.getElementById('locationWarning');
-                if (distance <= MAX_DISTANCE) {
-                    if (locationWarning) locationWarning.classList.add('hidden');
-                    resolve(true);
-                } else {
-                    if (locationWarning) locationWarning.classList.remove('hidden');
-                    reject(`Jarak ${Math.round(distance)}m. Max ${MAX_DISTANCE}m.`);
-                }
+                // ✅ Tidak ada validation distance di sini
+                // Backend yang akan validate
+                resolve(true);
             },
-            () => reject('Tidak dapat akses lokasi. Aktifkan GPS.'),
+            (error) => {
+                let message = 'Tidak dapat akses lokasi.';
+                if (error.code === error.PERMISSION_DENIED) {
+                    message = 'Izin lokasi ditolak. Aktifkan GPS di browser.';
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    message = 'Lokasi tidak tersedia. Pastikan GPS aktif.';
+                } else if (error.code === error.TIMEOUT) {
+                    message = 'Request lokasi timeout. Coba lagi.';
+                }
+                reject(message);
+            },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     });
@@ -464,7 +447,7 @@ async function openCheckInModal() {
     document.getElementById('modalTitle').textContent = 'Absen Masuk';
     document.getElementById('modalSubtitle').textContent = 'Posisikan wajah di kamera';
     document.getElementById('earlyCheckoutNotice').classList.add('hidden');
-    document.getElementById('statusBanner').className = 'mb-4 p-3 sm:p-4 rounded-lg bg-blue-50 border-l-4 border-blue-500';
+    document.getElementById('statusBanner').className = 'mb-2 sm:mb-4 p-2 sm:p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500';
     await openModal();
 }
 
@@ -480,12 +463,12 @@ async function openCheckOutModal() {
         document.getElementById('modalTitle').textContent = 'Absen Pulang (Lebih Awal)';
         document.getElementById('modalSubtitle').textContent = 'Anda pulang sebelum 16:00';
         document.getElementById('earlyCheckoutNotice').classList.remove('hidden');
-        document.getElementById('statusBanner').className = 'mb-4 p-3 sm:p-4 rounded-lg bg-orange-50 border-l-4 border-orange-500';
+        document.getElementById('statusBanner').className = 'mb-2 sm:mb-4 p-2 sm:p-3 rounded-lg bg-orange-50 border-l-4 border-orange-500';
     } else {
         document.getElementById('modalTitle').textContent = 'Absen Pulang';
         document.getElementById('modalSubtitle').textContent = 'Posisikan wajah di kamera';
         document.getElementById('earlyCheckoutNotice').classList.add('hidden');
-        document.getElementById('statusBanner').className = 'mb-4 p-3 sm:p-4 rounded-lg bg-blue-50 border-l-4 border-blue-500';
+        document.getElementById('statusBanner').className = 'mb-2 sm:mb-4 p-2 sm:p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500';
     }
     
     await openModal();
@@ -499,6 +482,8 @@ async function openModal() {
     // Check location
     try {
         await checkLocation();
+        // ✅ Hide warning karena tidak ada frontend validation
+        document.getElementById('locationWarning')?.classList.add('hidden');
     } catch (error) {
         alert(error);
         closeModal();
@@ -623,10 +608,8 @@ async function captureAndSubmit() {
         const photo = canvas.toDataURL('image/jpeg', 0.8);
         const faceDescriptor = Array.from(detection.descriptor);
         
-        // Fix: Gunakan routes yang sudah didefinisikan di awal
-        const url = currentType === 'checkin' 
-            ? ATTENDANCE_ROUTES.checkin 
-            : ATTENDANCE_ROUTES.checkout;
+        // ✅ FIXED: Use route URLs dari PHP
+        const url = currentType === 'checkin' ? CHECKIN_URL : CHECKOUT_URL;
 
         const requestData = {
             face_descriptor: faceDescriptor,
@@ -651,25 +634,23 @@ async function captureAndSubmit() {
             body: JSON.stringify(requestData)
         });
 
-        // Handle response dengan error handling yang lebih baik
+        // Handle response
         let result;
         try {
-            // Cek jika response tidak OK, baca text dulu untuk debug
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Server Error Response:', errorText);
                 try {
                     result = JSON.parse(errorText);
                 } catch {
-                    throw new Error('Server error: ' + errorText || 'Gagal memproses response');
+                    throw new Error('Server error: ' + (errorText || 'Gagal memproses response'));
                 }
             } else {
                 result = await response.json();
             }
         } catch (jsonError) {
             console.error('JSON Parse Error:', jsonError);
-            const text = await response.text().catch(() => 'Tidak dapat membaca response');
-            throw new Error('Server error: ' + text || 'Gagal memproses response');
+            throw new Error('Gagal memproses response dari server');
         }
 
         if (result.requires_reason || result.requires_photo) {
@@ -683,27 +664,18 @@ async function captureAndSubmit() {
 
         if (!response.ok || !result.success) {
             const errorMsg = result.message || result.error || 'Gagal absen';
-            console.error('Checkin Error:', result);
             throw new Error(errorMsg);
         }
         
         alert(result.message);
         closeModal();
         
-        // Refresh Livewire component - gunakan Livewire.emit atau reload
-        if (typeof Livewire !== 'undefined' && Livewire.find) {
-            const component = Livewire.find(document.querySelector('[wire\\:id]')?.getAttribute('wire:id'));
-            if (component) {
-                component.call('refreshData');
-            }
-        }
         // Reload untuk update data terbaru
         setTimeout(() => {
             window.location.reload();
         }, 500);
     } catch (error) {
-        console.error('Checkin Error Details:', error);
-        console.error('Error Stack:', error.stack);
+        console.error('Checkin Error:', error);
         alert('Error: ' + (error.message || error.toString()));
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
@@ -728,6 +700,7 @@ function closeModal() {
     document.getElementById('captureBtn').disabled = true;
     document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera mr-1"></i>Ambil Foto & Absen';
     document.getElementById('progressInfo').classList.add('hidden');
+    
     const earlyReason = document.getElementById('earlyReason');
     if (earlyReason) {
         earlyReason.value = '';
@@ -743,7 +716,7 @@ document.getElementById('cameraModal')?.addEventListener('click', function(e) {
     }
 });
 
-// Check location on page load
+// Check location on page load (hanya get GPS, tidak validate)
 window.addEventListener('load', () => {
     checkLocation().catch(() => {});
 });

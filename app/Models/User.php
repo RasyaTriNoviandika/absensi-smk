@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Crypt;
 
 class User extends Authenticatable
 {
@@ -28,14 +29,45 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'face_descriptor', // ✅ FIXED: Hide dari JSON response
     ];
 
-    // FIXED: Added face_descriptor casting for better performance
+    // ✅ FIXED: Casting dengan encryption
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'face_descriptor' => 'array', // Auto decode/encode JSON
+        // ✅ REMOVED: 'face_descriptor' => 'array', 
+        // Pakai encrypted casting manual di accessor/mutator
     ];
+
+    // ✅ FIXED: Encrypt saat set face_descriptor
+    public function setFaceDescriptorAttribute($value)
+    {
+        if (is_array($value)) {
+            $value = json_encode($value);
+        }
+        
+        // Encrypt before saving to database
+        $this->attributes['face_descriptor'] = Crypt::encryptString($value);
+    }
+
+    // ✅ FIXED: Decrypt saat get face_descriptor
+    public function getFaceDescriptorAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        try {
+            // Decrypt from database
+            $decrypted = Crypt::decryptString($value);
+            return json_decode($decrypted, true);
+        } catch (\Exception $e) {
+            // Jika gagal decrypt (data lama), return null
+            \Log::warning('Failed to decrypt face_descriptor for user ' . $this->id);
+            return null;
+        }
+    }
 
     // Relationships
     public function attendances()
@@ -85,17 +117,16 @@ class User extends Authenticatable
         return $this->status === 'approved';
     }
 
-    // FIXED: Simplified with casting
+    // ✅ FIXED: Simplified accessor (sudah di-handle di getFaceDescriptorAttribute)
     public function getFaceDescriptor()
     {
-        // face_descriptor is already an array due to casting
         return $this->face_descriptor;
     }
 
+    // ✅ FIXED: Simplified mutator
     public function setFaceDescriptor(array $descriptor)
     {
-        // Will be automatically JSON encoded due to casting
-        $this->face_descriptor = $descriptor;
+        $this->face_descriptor = $descriptor; // Will auto-encrypt via mutator
         $this->save();
     }
 

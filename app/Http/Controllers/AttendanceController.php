@@ -1,6 +1,4 @@
 <?php
-// app/Http/Controllers/AttendanceController.php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -10,11 +8,12 @@ use App\Services\FaceRecognitionService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
-    // ✅ AMBIL DARI SETTINGS TABLE
+    //  FIXED: Private method untuk get coordinates dari Settings
     private function getSchoolCoordinates()
     {
         return [
@@ -25,13 +24,31 @@ class AttendanceController extends Controller
 
     private function getMaxDistance()
     {
-        // ✅ DEFAULT 100 meter untuk production
         return (int) Setting::get('max_distance_meters', 100);
+    }
+
+    //  FIXED: Backend validation untuk GPS (jangan percaya client!)
+    private function validateLocation($latitude, $longitude)
+    {
+        $school = $this->getSchoolCoordinates();
+        $maxDistance = $this->getMaxDistance();
+        
+        $distance = $this->calculateDistance(
+            $school['lat'], 
+            $school['lng'], 
+            $latitude, 
+            $longitude
+        );
+        
+        if ($distance > $maxDistance) {
+            throw new \Exception("Lokasi terlalu jauh dari sekolah. Jarak: " . round($distance) . "m (Max: {$maxDistance}m)");
+        }
+        
+        return $distance;
     }
 
     public function checkIn(Request $request)
     {
-        // ✅ RATE LIMITING: Max 3 attempts per 5 minutes
         $key = 'checkin:' . auth()->id();
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
@@ -41,21 +58,28 @@ class AttendanceController extends Controller
             ], 429);
         }
 
+        //  FIXED: Wrap dalam DB transaction untuk prevent race condition
+        DB::beginTransaction();
+        
         try {
             $user = auth()->user();
             
             if (!$user) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'User tidak terautentikasi.'
                 ], 401);
             }
             
-            // ✅ CHECK: Sudah absen hari ini?
-            if (Attendance::where('user_id', $user->id)
+            //  FIXED: Lock row untuk prevent duplicate
+            $existingAttendance = Attendance::where('user_id', $user->id)
                 ->whereDate('date', today())
-                ->whereNotNull('check_in')
-                ->exists()) {
+                ->lockForUpdate()
+                ->first();
+            
+            if ($existingAttendance && $existingAttendance->check_in) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda sudah absen masuk hari ini.'
@@ -63,33 +87,25 @@ class AttendanceController extends Controller
             }
 
             $validated = $request->validate([
-                'face_descriptor' => 'required|array|size:128', // Face-api.js standard
+                'face_descriptor' => 'required|array|size:128',
                 'photo' => 'required|string',
                 'latitude' => 'required|numeric|between:-90,90',
                 'longitude' => 'required|numeric|between:-180,180',
             ]);
 
-            // ✅ VALIDASI LOKASI
-            $school = $this->getSchoolCoordinates();
-            $maxDistance = $this->getMaxDistance();
-            
-            $distance = $this->calculateDistance(
-                $school['lat'], 
-                $school['lng'], 
-                $validated['latitude'], 
-                $validated['longitude']
-            );
-            
-            if ($distance > $maxDistance) {
-                RateLimiter::hit($key, 300); // 5 minutes
-                
+            // FIXED: Backend GPS validation (CRITICAL!)
+            try {
+                $distance = $this->validateLocation($validated['latitude'], $validated['longitude']);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                RateLimiter::hit($key, 300);
                 return response()->json([
                     'success' => false,
-                    'message' => "Lokasi terlalu jauh. Jarak: " . round($distance) . "m (Max: {$maxDistance}m)"
+                    'message' => $e->getMessage()
                 ], 400);
             }
 
-            // ✅ VALIDASI WAJAH
+            //  VALIDASI WAJAH
             $storedDescriptor = $user->face_descriptor;
             if (!is_array($storedDescriptor)) {
                 $storedDescriptor = json_decode($storedDescriptor, true);
@@ -98,6 +114,7 @@ class AttendanceController extends Controller
             $threshold = (float) Setting::get('face_match_threshold', 0.6);
             
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
+                DB::rollBack();
                 RateLimiter::hit($key, 300);
                 
                 return response()->json([
@@ -106,10 +123,11 @@ class AttendanceController extends Controller
                 ], 400);
             }
 
-            // ✅ SIMPAN FOTO
+            // FIXED: Simpan ke PRIVATE storage
             try {
-                $photoPath = $this->saveBase64Image($validated['photo'], 'checkin');
+                $photoPath = $this->saveBase64ImageSecure($validated['photo'], 'checkin', $user->id);
             } catch (\Exception $e) {
+                DB::rollBack();
                 Log::error('Photo save failed: ' . $e->getMessage());
                 return response()->json([
                     'success' => false,
@@ -117,23 +135,29 @@ class AttendanceController extends Controller
                 ], 500);
             }
 
-            // ✅ TENTUKAN STATUS
+            //  TENTUKAN STATUS
             $checkInTime = Carbon::now('Asia/Jakarta');
             $limitTime = Setting::get('check_in_time_limit', '07:30');
             $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
             $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
 
-            // ✅ SIMPAN ATTENDANCE
-            $attendance = Attendance::create([
-                'user_id' => $user->id,
-                'date' => $checkInTime->toDateString(),
-                'check_in' => $checkInTime->toTimeString(),
-                'check_in_status' => $status,
-                'check_in_photo' => $photoPath,
-                'status' => $status,
-            ]);
+            //  FIXED: Use updateOrCreate untuk handle race condition
+            $attendance = Attendance::updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'date' => $checkInTime->toDateString(),
+                ],
+                [
+                    'check_in' => $checkInTime->toTimeString(),
+                    'check_in_status' => $status,
+                    'check_in_photo' => $photoPath,
+                    'status' => $status,
+                ]
+            );
 
-            // ✅ LOG ACTIVITY
+            DB::commit();
+
+            //  LOG ACTIVITY
             Log::info('Check-in success', [
                 'user_id' => $user->id,
                 'time' => $checkInTime->format('H:i:s'),
@@ -141,7 +165,6 @@ class AttendanceController extends Controller
                 'distance' => round($distance, 2) . 'm'
             ]);
 
-            // ✅ CLEAR RATE LIMIT ON SUCCESS
             RateLimiter::clear($key);
 
             return response()->json([
@@ -154,12 +177,14 @@ class AttendanceController extends Controller
             ]);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Data tidak valid. Pastikan wajah terdeteksi dan GPS aktif.',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('CheckIn Error: ' . $e->getMessage(), [
                 'user_id' => auth()->id(),
                 'trace' => $e->getTraceAsString()
@@ -175,7 +200,6 @@ class AttendanceController extends Controller
 
     public function checkOut(Request $request)
     {
-        // ✅ RATE LIMITING
         $key = 'checkout:' . auth()->id();
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
@@ -185,14 +209,18 @@ class AttendanceController extends Controller
             ], 429);
         }
 
+        DB::beginTransaction();
+
         try {
             $user = auth()->user();
             
             $attendance = Attendance::where('user_id', $user->id)
                 ->whereDate('date', today())
+                ->lockForUpdate()
                 ->first();
             
             if (!$attendance || !$attendance->check_in) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda harus absen masuk terlebih dahulu.'
@@ -200,6 +228,7 @@ class AttendanceController extends Controller
             }
 
             if ($attendance->check_out) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda sudah absen pulang hari ini.'
@@ -212,9 +241,10 @@ class AttendanceController extends Controller
             
             $isEarly = $currentTime->lessThan($minCheckoutDateTime);
             
-            // ✅ VALIDASI PULANG CEPAT
+            // VALIDASI PULANG CEPAT
             if ($isEarly) {
                 if (!$request->filled('early_reason')) {
+                    DB::rollBack();
                     return response()->json([
                         'success' => false,
                         'message' => 'Anda pulang lebih awal. Harap isi alasan pulang cepat.',
@@ -225,6 +255,7 @@ class AttendanceController extends Controller
                 }
 
                 if (!$request->filled('early_photo')) {
+                    DB::rollBack();
                     return response()->json([
                         'success' => false,
                         'message' => 'Upload foto bukti surat izin pulang cepat.',
@@ -242,27 +273,19 @@ class AttendanceController extends Controller
                 'early_photo' => $isEarly ? 'required|string' : 'nullable|string',
             ]);
 
-            // ✅ VALIDASI LOKASI
-            $school = $this->getSchoolCoordinates();
-            $maxDistance = $this->getMaxDistance();
-            
-            $distance = $this->calculateDistance(
-                $school['lat'], 
-                $school['lng'], 
-                $validated['latitude'], 
-                $validated['longitude']
-            );
-            
-            if ($distance > $maxDistance) {
+            //  FIXED: Backend GPS validation
+            try {
+                $distance = $this->validateLocation($validated['latitude'], $validated['longitude']);
+            } catch (\Exception $e) {
+                DB::rollBack();
                 RateLimiter::hit($key, 300);
-                
                 return response()->json([
                     'success' => false,
-                    'message' => "Lokasi terlalu jauh. Jarak: " . round($distance) . "m (Max: {$maxDistance}m)"
+                    'message' => $e->getMessage()
                 ], 400);
             }
 
-            // ✅ VALIDASI WAJAH
+            //  VALIDASI WAJAH
             $storedDescriptor = $user->face_descriptor;
             if (!is_array($storedDescriptor)) {
                 $storedDescriptor = json_decode($storedDescriptor, true);
@@ -271,6 +294,7 @@ class AttendanceController extends Controller
             $threshold = (float) Setting::get('face_match_threshold', 0.6);
 
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
+                DB::rollBack();
                 RateLimiter::hit($key, 300);
                 
                 return response()->json([
@@ -279,10 +303,11 @@ class AttendanceController extends Controller
                 ], 400);
             }
 
-            // ✅ SIMPAN FOTO
+            //  FIXED: Simpan foto ke PRIVATE storage
             try {
-                $photoPath = $this->saveBase64Image($validated['photo'], 'checkout');
+                $photoPath = $this->saveBase64ImageSecure($validated['photo'], 'checkout', $user->id);
             } catch (\Exception $e) {
+                DB::rollBack();
                 Log::error('Photo save failed: ' . $e->getMessage());
                 return response()->json([
                     'success' => false,
@@ -295,13 +320,13 @@ class AttendanceController extends Controller
                 'check_out_photo' => $photoPath,
             ];
 
-            // ✅ SIMPAN FOTO BUKTI & ALASAN
+            //  SIMPAN FOTO BUKTI & ALASAN
             if ($isEarly && isset($validated['early_reason'])) {
                 $updateData['notes'] = 'Pulang cepat (' . $currentTime->format('H:i') . '): ' . $validated['early_reason'];
                 
                 if (!empty($validated['early_photo'])) {
                     try {
-                        $earlyPhotoPath = $this->saveBase64Image($validated['early_photo'], 'early_letter');
+                        $earlyPhotoPath = $this->saveBase64ImageSecure($validated['early_photo'], 'early_letter', $user->id);
                         $updateData['early_checkout_photo'] = $earlyPhotoPath;
                     } catch (\Exception $e) {
                         Log::error('Early photo save failed: ' . $e->getMessage());
@@ -311,7 +336,8 @@ class AttendanceController extends Controller
 
             $attendance->update($updateData);
 
-            // ✅ LOG ACTIVITY
+            DB::commit();
+
             Log::info('Check-out success', [
                 'user_id' => $user->id,
                 'time' => $currentTime->format('H:i:s'),
@@ -333,12 +359,14 @@ class AttendanceController extends Controller
             ]);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Data tidak valid.',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('CheckOut Error: ' . $e->getMessage(), [
                 'user_id' => auth()->id(),
                 'trace' => $e->getTraceAsString()
@@ -370,10 +398,10 @@ class AttendanceController extends Controller
         return $R * $c;
     }
 
-    private function saveBase64Image($base64String, $prefix)
+    // FIXED: Simpan ke PRIVATE storage dengan struktur folder per user
+    private function saveBase64ImageSecure($base64String, $prefix, $userId)
     {
         try {
-            // ✅ VALIDATE IMAGE SIZE (Max 5MB)
             $image = preg_replace('/^data:image\/\w+;base64,/', '', $base64String);
             $image = str_replace(' ', '+', $image);
             
@@ -384,10 +412,13 @@ class AttendanceController extends Controller
                 throw new \Exception('Image size too large (max 5MB)');
             }
             
+            // FIXED: Simpan di private storage dengan folder per user
+            $date = now()->format('Y-m-d');
             $imageName = $prefix . '_' . time() . '_' . uniqid() . '.jpg';
-            $path = 'attendance/' . $imageName;
+            $path = "attendance/user_{$userId}/{$date}/{$imageName}";
             
-            if (!Storage::disk('public')->put($path, $decodedImage)) {
+            //  Gunakan 'local' disk (private) bukan 'public'
+            if (!Storage::disk('local')->put($path, $decodedImage)) {
                 throw new \Exception('Failed to save image to storage');
             }
             

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PhotoController; // ✅ NEW
 
 // Livewire Components
 use App\Http\Livewire\Admin\Dashboard as AdminDashboard;
@@ -30,6 +31,12 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+// ✅ NEW: Secure Photo Route (requires auth + custom middleware)
+Route::get('/secure-photo/{path}', [PhotoController::class, 'show'])
+    ->where('path', '.*')
+    ->middleware(['auth', \App\Http\Middleware\SecurePhotoAccess::class])
+    ->name('secure.photo');
 
 /*
 |--------------------------------------------------------------------------

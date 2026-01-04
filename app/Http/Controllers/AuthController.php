@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Helpers\PhoneHelper; // ✅ FIXED: Use centralized helper
 
 class AuthController extends Controller
 {
@@ -55,47 +56,31 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        //  SECURITY FIX: Validasi dengan unique constraint
+        // ✅ FIXED: Use PhoneHelper for validation
         $validated = $request->validate([
             'nisn' => 'required|digits:10|unique:users,nisn',
             'name' => 'required|string|max:255',
-            // TAMBAHAN: Username harus unique
             'username' => [
                 'required',
                 'string',
                 'max:255',
                 'unique:users,username',
-                'alpha_dash' // Hanya huruf, angka, dash, underscore
+                'alpha_dash'
             ],
             'password' => 'required|string|min:8|confirmed',
             'class' => 'required|string',
-            'phone' => [
-                'nullable',
-                'string',
-                'min:10',
-                'max:15',
-                'unique:users,phone',
-                'regex:/^(\+62|62|0)8[0-9]{8,13}$/'
-            ],
+            'phone' => PhoneHelper::validationRule(), // ✅ FIXED
             'email' => 'nullable|email|unique:users,email',
             'face_descriptor' => 'required|json',
         ], [
-            // Custom error messages
             'username.unique' => 'Username sudah digunakan. Pilih username lain.',
             'username.alpha_dash' => 'Username hanya boleh huruf, angka, dash (-), dan underscore (_).',
-            'phone.regex' => 'Format nomor HP tidak valid. Gunakan format: 08xxx, 628xxx, atau +628xxx',
-            'phone.min' => 'Nomor HP minimal 10 digit',
-            'phone.max' => 'Nomor HP maksimal 15 digit',
-            'phone.unique' => 'Nomor HP sudah terdaftar',
             'nisn.unique' => 'NISN sudah terdaftar',
             'email.unique' => 'Email sudah terdaftar',
         ]);
 
-        // Normalisasi phone number
-        $normalizedPhone = null;
-        if (!empty($validated['phone'])) {
-            $normalizedPhone = $this->normalizePhoneNumber($validated['phone']);
-        }
+        // ✅ FIXED: Normalize phone using helper
+        $normalizedPhone = PhoneHelper::normalize($validated['phone'] ?? null);
 
         $user = User::create([
             'nisn' => $validated['nisn'],
@@ -113,21 +98,6 @@ class AuthController extends Controller
 
         return redirect()->route('login')
             ->with('success', 'Registrasi berhasil! Tunggu approval dari admin untuk dapat login.');
-    }
-
-    private function normalizePhoneNumber($phone)
-    {
-        $phone = preg_replace('/[\s\-]/', '', $phone);
-        
-        if (strpos($phone, '+62') === 0) {
-            return '0' . substr($phone, 3);
-        }
-        
-        if (strpos($phone, '62') === 0) {
-            return '0' . substr($phone, 2);
-        }
-        
-        return $phone;
     }
 
     public function logout(Request $request)
