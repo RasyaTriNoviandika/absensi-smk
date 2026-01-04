@@ -399,7 +399,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!token || token.trim() === '') {
+        throw new Error('CSRF token missing - possible security issue');
+    }
+    return token;
 }
 
 function removeEarlyPhoto() {
@@ -409,7 +413,7 @@ function removeEarlyPhoto() {
     document.getElementById('photoButtonText').textContent = 'Ambil/Upload Foto Surat';
 }
 
-// ✅ FIXED: Simplified - hanya get GPS, tidak validate di frontend
+//  FIXED: Simplified - hanya get GPS, tidak validate di frontend
 async function checkLocation() {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -608,7 +612,7 @@ async function captureAndSubmit() {
         const photo = canvas.toDataURL('image/jpeg', 0.8);
         const faceDescriptor = Array.from(detection.descriptor);
         
-        // ✅ FIXED: Use route URLs dari PHP
+        // FIXED: Use route URLs dari PHP
         const url = currentType === 'checkin' ? CHECKIN_URL : CHECKOUT_URL;
 
         const requestData = {
@@ -720,6 +724,47 @@ document.getElementById('cameraModal')?.addEventListener('click', function(e) {
 window.addEventListener('load', () => {
     checkLocation().catch(() => {});
 });
+
+async function captureMultipleFrames() {
+    const frames = [];
+    for (let i = 0; i < 3; i++) {
+        const detection = await faceapi.detectSingleFace(
+            video,
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
+        ).withFaceLandmarks().withFaceDescriptor();
+        
+        if (detection) {
+            frames.push(Array.from(detection.descriptor));
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+    
+    // Verify consistency (anti-replay attack)
+    if (frames.length < 3) {
+        throw new Error('Tidak dapat menangkap wajah dengan konsisten');
+    }
+    
+    // Check variance antar frame
+    const variance = calculateDescriptorVariance(frames);
+    if (variance > 0.3) {
+        throw new Error('Pergerakan wajah tidak konsisten - coba lagi');
+    }
+    
+    return frames[0]; // Return first frame descriptor
+}
+
+function calculateDescriptorVariance(frames) {
+    // Simple variance check
+    let sumDiff = 0;
+    for (let i = 0; i < frames.length - 1; i++) {
+        let diff = 0;
+        for (let j = 0; j < frames[i].length; j++) {
+            diff += Math.pow(frames[i][j] - frames[i+1][j], 2);
+        }
+        sumDiff += Math.sqrt(diff);
+    }
+    return sumDiff / (frames.length - 1);
+}
 </script>
 @endpush
 </div>

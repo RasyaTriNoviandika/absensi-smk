@@ -29,6 +29,7 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SecurityHeaders::class,
         ],
 
         'api' => [
@@ -52,6 +53,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'admin' => \App\Http\Middleware\AdminMiddleware::class,
         'student' => \App\Http\Middleware\StudentMiddleware::class,
-        'secure.photo' => \App\Http\Middleware\SecurePhotoAccess::class, // ✅ NEW
+        'secure.photo' => \App\Http\Middleware\SecurePhotoAccess::class,
+        'throttle.strict' => \Illuminte\Routing\Middleware\ThrottleRequests::class . ':10,1',
     ];
 }

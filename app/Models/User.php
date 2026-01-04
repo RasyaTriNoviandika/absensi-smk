@@ -6,52 +6,75 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = [
-        'nisn',
-        'username',
-        'name',
-        'email',
-        'password',
+    // 🔒 SECURITY: Guarded untuk prevent mass assignment attack
+    protected $guarded = [
+        'id',
         'role',
-        'class',
-        'phone',
-        'address',
         'status',
         'face_descriptor',
-        'profile_photo',
+        'face_descriptor_hash',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
-        'face_descriptor', // ✅ FIXED: Hide dari JSON response
+        'face_descriptor',
+        'face_descriptor_hash',
     ];
 
-    // ✅ FIXED: Casting dengan encryption
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        // ✅ REMOVED: 'face_descriptor' => 'array', 
-        // Pakai encrypted casting manual di accessor/mutator
+        'last_login_at' => 'datetime',
+        'face_registered_at' => 'datetime',
     ];
 
-    // ✅ FIXED: Encrypt saat set face_descriptor
+    // 🔒 SECURITY FIX: Authenticated encryption dengan integrity check
     public function setFaceDescriptorAttribute($value)
     {
+        if (empty($value)) {
+            $this->attributes['face_descriptor'] = null;
+            $this->attributes['face_descriptor_hash'] = null;
+            return;
+        }
+        
         if (is_array($value)) {
             $value = json_encode($value);
         }
         
-        // Encrypt before saving to database
-        $this->attributes['face_descriptor'] = Crypt::encryptString($value);
+        try {
+            // Encrypt dengan Laravel Crypt (AES-256-CBC)
+            $encrypted = Crypt::encryptString($value);
+            
+            // Generate HMAC untuk integrity verification
+            $hash = hash_hmac('sha256', $value, config('app.key'));
+            
+            $this->attributes['face_descriptor'] = $encrypted;
+            $this->attributes['face_descriptor_hash'] = $hash;
+            $this->attributes['face_registered_at'] = now();
+            
+            // Audit log
+            Log::info('Face descriptor encrypted', [
+                'user_id' => $this->id ?? 'new',
+                'timestamp' => now(),
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Face descriptor encryption failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $this->id ?? 'new',
+            ]);
+            throw new \Exception('Failed to secure face descriptor');
+        }
     }
 
-    // ✅ FIXED: Decrypt saat get face_descriptor
+    // 🔒 SECURITY FIX: Decrypt dengan integrity verification
     public function getFaceDescriptorAttribute($value)
     {
         if (empty($value)) {
@@ -59,12 +82,30 @@ class User extends Authenticatable
         }
         
         try {
-            // Decrypt from database
+            // Decrypt
             $decrypted = Crypt::decryptString($value);
+            
+            // Verify integrity (jika hash field ada)
+            if (!empty($this->attributes['face_descriptor_hash'])) {
+                $expectedHash = hash_hmac('sha256', $decrypted, config('app.key'));
+                
+                if (!hash_equals($this->attributes['face_descriptor_hash'], $expectedHash)) {
+                    Log::warning('Face descriptor integrity check failed', [
+                        'user_id' => $this->id,
+                    ]);
+                    
+                    // Return null untuk trigger re-registration
+                    return null;
+                }
+            }
+            
             return json_decode($decrypted, true);
+            
         } catch (\Exception $e) {
-            // Jika gagal decrypt (data lama), return null
-            \Log::warning('Failed to decrypt face_descriptor for user ' . $this->id);
+            Log::warning('Face descriptor decryption failed', [
+                'user_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
             return null;
         }
     }
@@ -117,16 +158,14 @@ class User extends Authenticatable
         return $this->status === 'approved';
     }
 
-    // ✅ FIXED: Simplified accessor (sudah di-handle di getFaceDescriptorAttribute)
     public function getFaceDescriptor()
     {
         return $this->face_descriptor;
     }
 
-    // ✅ FIXED: Simplified mutator
     public function setFaceDescriptor(array $descriptor)
     {
-        $this->face_descriptor = $descriptor; // Will auto-encrypt via mutator
+        $this->face_descriptor = $descriptor;
         $this->save();
     }
 
@@ -154,5 +193,23 @@ class User extends Authenticatable
             ->whereDate('date', today())
             ->whereNotNull('check_out')
             ->exists();
+    }
+    
+    // 🔒 SECURITY: Track login attempts
+    public function recordLoginAttempt($success, $ipAddress)
+    {
+        Log::info('Login attempt', [
+            'user_id' => $this->id,
+            'success' => $success,
+            'ip' => $ipAddress,
+            'timestamp' => now(),
+        ]);
+        
+        if ($success) {
+            $this->update([
+                'last_login_at' => now(),
+                'last_login_ip' => $ipAddress,
+            ]);
+        }
     }
 }

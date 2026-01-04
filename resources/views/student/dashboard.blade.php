@@ -401,11 +401,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!token) {
+        throw new Error('CSRF token not found - possible CSRF attack');
+    }
+    return token;
 }
 
 function removeEarlyPhoto() {
     earlyPhotoBase64 = null;
+    
     document.getElementById('earlyPhotoInput').value = '';
     document.getElementById('photoPreview').classList.add('hidden');
     document.getElementById('photoButtonText').textContent = 'Ambil/Upload Foto Surat';
@@ -428,6 +433,7 @@ async function checkLocation() {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
             reject('Browser tidak support GPS');
+            resolve(true);
             return;
         }
 

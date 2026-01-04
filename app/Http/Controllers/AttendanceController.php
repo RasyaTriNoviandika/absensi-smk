@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Services\GpsValidationService;
 
 class AttendanceController extends Controller
 {
@@ -93,9 +94,14 @@ class AttendanceController extends Controller
                 'longitude' => 'required|numeric|between:-180,180',
             ]);
 
-            // FIXED: Backend GPS validation (CRITICAL!)
-            try {
-                $distance = $this->validateLocation($validated['latitude'], $validated['longitude']);
+            
+            //Gps Validation
+            try{
+                GpsValidationService::validate(
+                    $validated['latitude'], 
+                    $validated['longitude'], 
+                    $user
+                );
             } catch (\Exception $e) {
                 DB::rollBack();
                 RateLimiter::hit($key, 300);
@@ -110,9 +116,9 @@ class AttendanceController extends Controller
             if (!is_array($storedDescriptor)) {
                 $storedDescriptor = json_decode($storedDescriptor, true);
             }
-            
-            $threshold = (float) Setting::get('face_match_threshold', 0.6);
-            
+
+            $threshold = (float) Setting::get('face_match_threshold', 0.50);
+
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
                 DB::rollBack();
                 RateLimiter::hit($key, 300);
@@ -399,35 +405,67 @@ class AttendanceController extends Controller
     }
 
     // FIXED: Simpan ke PRIVATE storage dengan struktur folder per user
-    private function saveBase64ImageSecure($base64String, $prefix, $userId)
-    {
-        try {
-            $image = preg_replace('/^data:image\/\w+;base64,/', '', $base64String);
-            $image = str_replace(' ', '+', $image);
-            
-            $decodedImage = base64_decode($image);
-            $imageSize = strlen($decodedImage);
-            
-            if ($imageSize > 5 * 1024 * 1024) { // 5MB
-                throw new \Exception('Image size too large (max 5MB)');
-            }
-            
-            // FIXED: Simpan di private storage dengan folder per user
-            $date = now()->format('Y-m-d');
-            $imageName = $prefix . '_' . time() . '_' . uniqid() . '.jpg';
-            $path = "attendance/user_{$userId}/{$date}/{$imageName}";
-            
-            //  Gunakan 'local' disk (private) bukan 'public'
-            if (!Storage::disk('local')->put($path, $decodedImage)) {
-                throw new \Exception('Failed to save image to storage');
-            }
-            
-            return $path;
-        } catch (\Exception $e) {
-            Log::error('Image save error: ' . $e->getMessage());
-            throw new \Exception('Failed to save image: ' . $e->getMessage());
+   private function saveBase64ImageSecure($base64String, $prefix, $userId)
+{
+    try {
+        $image = preg_replace('/^data:image\/\w+;base64,/', '', $base64String);
+        $image = str_replace(' ', '+', $image);
+        $decodedImage = base64_decode($image, true);
+        
+        if ($decodedImage === false) {
+            throw new \Exception('Invalid base64 image');
         }
+        
+        // 🔒 SECURITY: Verify it's actually an image
+        $imageInfo = @getimagesizefromstring($decodedImage);
+        if ($imageInfo === false) {
+            throw new \Exception('Not a valid image');
+        }
+        
+        // 🔒 SECURITY: Whitelist MIME types
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (!in_array($imageInfo['mime'], $allowedMimes)) {
+            throw new \Exception('Invalid image type. Only JPEG/PNG allowed');
+        }
+        
+        // 🔒 SECURITY: Check dimensions (prevent DoS)
+        if ($imageInfo[0] > 4000 || $imageInfo[1] > 4000) {
+            throw new \Exception('Image dimensions too large (max 4000x4000)');
+        }
+        
+        // 🔒 SECURITY: Check file size
+        $imageSize = strlen($decodedImage);
+        if ($imageSize > 5 * 1024 * 1024) {
+            throw new \Exception('Image size too large (max 5MB)');
+        }
+        
+        // 🔒 SECURITY: Re-encode to strip potential malware/metadata
+        $image = imagecreatefromstring($decodedImage);
+        if ($image === false) {
+            throw new \Exception('Failed to process image');
+        }
+        
+        ob_start();
+        imagejpeg($image, null, 85);
+        $cleanImage = ob_get_clean();
+        imagedestroy($image);
+        
+        // Save with secure path
+        $date = now()->format('Y-m-d');
+        $imageName = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.jpg';
+        $path = "attendance/user_{$userId}/{$date}/{$imageName}";
+        
+        if (!Storage::disk('local')->put($path, $cleanImage)) {
+            throw new \Exception('Failed to save image to storage');
+        }
+        
+        return $path;
+        
+    } catch (\Exception $e) {
+        Log::error('Image save error: ' . $e->getMessage());
+        throw new \Exception('Failed to save image: ' . $e->getMessage());
     }
+}
 
     public function history(Request $request)
     {

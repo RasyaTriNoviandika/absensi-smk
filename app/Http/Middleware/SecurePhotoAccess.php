@@ -1,18 +1,12 @@
 <?php
-
 namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Attendance;
 
 class SecurePhotoAccess
 {
-    /**
-     * Handle an incoming request untuk akses foto attendance
-     * Hanya owner foto atau admin yang bisa akses
-     */
     public function handle(Request $request, Closure $next)
     {
         $user = auth()->user();
@@ -26,16 +20,27 @@ class SecurePhotoAccess
             return $next($request);
         }
 
-        // Student hanya bisa akses foto mereka sendiri
         $photoPath = $request->route('path');
         
-        // Extract user_id dari path: attendance/user_{id}/...
-        if (preg_match('/user_(\d+)/', $photoPath, $matches)) {
-            $photoUserId = (int) $matches[1];
-            
-            if ($user->id !== $photoUserId) {
-                abort(403, 'You can only access your own photos');
-            }
+        // 🔒 SECURITY FIX: Prevent path traversal
+        if (str_contains($photoPath, '..') || 
+            str_contains($photoPath, '//') ||
+            str_contains($photoPath, '\\') ||
+            preg_match('/%2e|%2f|%5c/i', $photoPath)) {
+            abort(403, 'Invalid path');
+        }
+        
+        // 🔒 SECURITY FIX: Verify ownership via database
+        $attendance = Attendance::where('user_id', $user->id)
+            ->where(function($q) use ($photoPath) {
+                $q->where('check_in_photo', 'like', "%{$photoPath}%")
+                  ->orWhere('check_out_photo', 'like', "%{$photoPath}%")
+                  ->orWhere('early_checkout_photo', 'like', "%{$photoPath}%");
+            })
+            ->first();
+        
+        if (!$attendance) {
+            abort(403, 'You can only access your own photos');
         }
 
         return $next($request);
