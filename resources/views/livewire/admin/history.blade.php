@@ -164,7 +164,7 @@ function openPhotoModal(imageUrl) {
 
 function closePhotoModal() {
     document.getElementById('photoModal').classList.add('hidden');
-    document.getElementById('photoModal').classList.remove('flex');
+    document.getEclementById('photoModal').classList.remove('flex');
 }
 
 // Close modal when clicking outside

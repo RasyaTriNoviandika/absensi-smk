@@ -150,42 +150,84 @@
         </div>
     </div>
 </div>
-
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const ctx = document.getElementById('weeklyChart');
-const weeklyData = @json($weeklyData);
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('weeklyChart');
+    const weeklyData = @json($weeklyData);
 
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: weeklyData.map(d => d.date),
-        datasets: [{
-            label: 'Kehadiran',
-            data: weeklyData.map(d => d.count),
-            borderColor: 'rgb(37, 99, 235)',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            tension: 0.3,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    stepSize: 10
+    if (ctx && weeklyData) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: weeklyData.map(d => d.date),
+                datasets: [{
+                    label: 'Kehadiran',
+                    data: weeklyData.map(d => d.count),
+                    borderColor: 'rgb(37, 99, 235)',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgb(37, 99, 235)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(37, 99, 235, 0.5)',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Hadir: ' + context.parsed.y + ' siswa';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 10,
+                            callback: function(value) {
+                                return value + ' siswa';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
                 }
             }
-        }
+        });
     }
 });
 </script>
