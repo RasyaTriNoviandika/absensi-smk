@@ -54,6 +54,6 @@ class Kernel extends HttpKernel
         'admin' => \App\Http\Middleware\AdminMiddleware::class,
         'student' => \App\Http\Middleware\StudentMiddleware::class,
         'secure.photo' => \App\Http\Middleware\SecurePhotoAccess::class,
-        'throttle.strict' => \Illuminte\Routing\Middleware\ThrottleRequests::class . ':10,1',
+        'throttle.strict' => \Illuminate\Routing\Middleware\ThrottleRequests::class . ':10,1',
     ];
 }

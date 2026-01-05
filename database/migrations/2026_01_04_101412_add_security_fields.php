@@ -14,11 +14,13 @@ return new class extends Migration
             $table->string('last_login_ip', 45)->nullable();
         });
         
-        Schema::table('attendances', function (Blueprint $table) {
+         Schema::table('attendances', function (Blueprint $table) {
             $table->decimal('latitude', 10, 8)->nullable()->after('notes');
             $table->decimal('longitude', 11, 8)->nullable()->after('latitude');
             $table->string('ip_address', 45)->nullable()->after('longitude');
             $table->text('user_agent')->nullable()->after('ip_address');
+
+            $table->index(['user_id', 'created_at'], 'idx_user_gps_time');
         });
     }
 

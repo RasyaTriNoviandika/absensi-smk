@@ -158,6 +158,10 @@ class AttendanceController extends Controller
                     'check_in_status' => $status,
                     'check_in_photo' => $photoPath,
                     'status' => $status,
+                    'latitude' => $validated['latitude'],
+                    'longitude' => $validated['longitude'],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
                 ]
             );
 
@@ -302,6 +306,13 @@ class AttendanceController extends Controller
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
                 DB::rollBack();
                 RateLimiter::hit($key, 300);
+
+                Log::channel('security')->warning('Face recognition failed', [
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+                'distance_from_stored' => $distance, 
+                'timestamp' => now(),
+                ]);
                 
                 return response()->json([
                     'success' => false,
@@ -428,18 +439,18 @@ class AttendanceController extends Controller
             throw new \Exception('Invalid image type. Only JPEG/PNG allowed');
         }
         
-        // 🔒 SECURITY: Check dimensions (prevent DoS)
+        //  SECURITY: Check dimensions (prevent DoS)
         if ($imageInfo[0] > 4000 || $imageInfo[1] > 4000) {
             throw new \Exception('Image dimensions too large (max 4000x4000)');
         }
         
-        // 🔒 SECURITY: Check file size
+        //  SECURITY: Check file size
         $imageSize = strlen($decodedImage);
         if ($imageSize > 5 * 1024 * 1024) {
             throw new \Exception('Image size too large (max 5MB)');
         }
         
-        // 🔒 SECURITY: Re-encode to strip potential malware/metadata
+        // SECURITY: Re-encode to strip potential malware/metadata
         $image = imagecreatefromstring($decodedImage);
         if ($image === false) {
             throw new \Exception('Failed to process image');

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class GpsValidationService
 {
     /**
-     * 🔒 SECURITY: Multi-layer GPS validation
+     * SECURITY: Multi-layer GPS validation
      */
     public static function validate($latitude, $longitude, User $user)
     {
@@ -107,9 +107,10 @@ class GpsValidationService
         $exactMatchCount = 0;
         foreach ($recent as $att) {
             // Jika koordinat PERSIS SAMA sampai 6 desimal = SUSPICIOUS
-            if (abs($att->latitude - $lat) < 0.000001 && 
-                abs($att->longitude - $lng) < 0.000001) {
-                $exactMatchCount++;
+          if (abs($att->latitude - $lat) < 0.00001 && // ~1 meter tolerance
+            abs($att->longitude - $lng) < 0.00001 &&
+            $att->created_at->diffInMinutes(now()) < 10) { // dalam 10 menit
+            $exactMatchCount++;
             }
         }
         

@@ -11,15 +11,17 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create Admin User
-        User::create([
-            'username' => 'gurusija',
-            'name' => 'Administrator',
-            'email' => 'gurusija@gmail.com',
-            'password' => Hash::make(env('ADMIN_PASSWORD', 'sijamabar')),
-            'role' => 'admin',
-            'status' => 'approved',
-        ]);
+        // Hanya 1 Akun Admin Default
+       User::firstOrCreate(
+    ['username' => 'gurusija'], // Unique username admin
+    [
+        'name' => 'Administrator',
+        'email' => 'gurusija@gmail.com',
+        'password' => Hash::make(env('ADMIN_PASSWORD', 'sijamabar')),
+        'role' => 'admin',
+        'status' => 'approved',
+    ]
+    );
 
         // // Create Sample Students (Optional)
         // User::create([
@@ -80,8 +82,15 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
-        foreach ($settings as $setting) {
-            Setting::create($setting);
-        }
+       foreach ($settings as $setting) {
+    Setting::updateOrCreate(
+        ['key' => $setting['key']], // pencarian hanya berdasarkan key
+        [
+            'value' => $setting['value'],
+            'type' => $setting['type'],
+            'description' => $setting['description'],
+        ]
+    );
+}
     }
 }

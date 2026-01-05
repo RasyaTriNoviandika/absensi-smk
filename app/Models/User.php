@@ -90,9 +90,13 @@ class User extends Authenticatable
                 $expectedHash = hash_hmac('sha256', $decrypted, config('app.key'));
                 
                 if (!hash_equals($this->attributes['face_descriptor_hash'], $expectedHash)) {
-                    Log::warning('Face descriptor integrity check failed', [
+                    Log::critical('SECURITY: Face descriptor tampered', [
                         'user_id' => $this->id,
+                        'timestamp' => now(),
                     ]);
+
+                    // manual reveiew
+                    $this->update(['status' => 'pending' , 'notes' => 'Security Check Failed']);
                     
                     // Return null untuk trigger re-registration
                     return null;
