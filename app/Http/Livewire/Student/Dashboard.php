@@ -1,5 +1,4 @@
 <?php
-// app/Http/Livewire/Student/Dashboard.php
 
 namespace App\Http\Livewire\Student;
 

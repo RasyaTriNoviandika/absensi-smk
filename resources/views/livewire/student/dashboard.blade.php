@@ -137,6 +137,27 @@
             </div>
         </div>
 
+        <!-- QR Backup Warning -->
+        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-circle text-yellow-600 mr-3 mt-1"></i>
+                <div>
+                    <p class="font-semibold text-yellow-800">
+                        Kamera wajah bermasalah?
+                    </p>
+                    <p class="text-sm text-yellow-700 mb-3">
+                        Gunakan QR Code dan pastikan sudah melapor ke guru.
+                    </p>
+
+                    <a href="{{ route('student.qr.code') }}"
+                    class="inline-block bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Tampilkan QR 
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
         <!-- History Table - RESPONSIVE -->
         <div class="bg-white rounded-lg shadow-sm">
             <div class="p-4 sm:p-6 border-b border-gray-200">
@@ -316,7 +337,7 @@
 
 @push('scripts')
 <script>
-// ✅ FIXED: Hapus definisi routes hardcode, pakai route helper
+//  FIXED: Hapus definisi routes hardcode, pakai route helper
 const CHECKIN_URL = '{{ route("attendance.checkin") }}';
 const CHECKOUT_URL = '{{ route("attendance.checkout") }}';
 
@@ -336,7 +357,7 @@ setInterval(() => {
 }, 1000);
 
 // Face recognition variables
-// ✅ FIXED: Hapus hardcoded SCHOOL_LAT/LNG dan MAX_DISTANCE
+// FIXED: Hapus hardcoded SCHOOL_LAT/LNG dan MAX_DISTANCE
 // Backend yang akan validate GPS coordinates
 
 let modelsLoaded = false;
@@ -486,7 +507,7 @@ async function openModal() {
     // Check location
     try {
         await checkLocation();
-        // ✅ Hide warning karena tidak ada frontend validation
+        // Hide warning karena tidak ada frontend validation
         document.getElementById('locationWarning')?.classList.add('hidden');
     } catch (error) {
         alert(error);

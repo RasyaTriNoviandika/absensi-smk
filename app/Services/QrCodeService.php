@@ -59,45 +59,37 @@ class QrCodeService
     /**
      * Validate QR Code
      */
-    public static function validateQrCode(string $qrData): ?User
-    {
-        try {
-            // Decrypt payload
-            $decrypted = Crypt::decryptString($qrData);
-            $data = json_decode($decrypted, true);
-            
-            // Check expiration
-            if ($data['expires'] < now()->timestamp) {
-                Log::warning('QR Code expired', ['data' => $data]);
-                return null;
-            }
-            
-            // Find user
-            $user = User::where('id', $data['user_id'])
-                ->where('nisn', $data['nisn'])
-                ->where('qr_token', $data['token'])
-                ->first();
-            
-            if (!$user) {
-                Log::warning('QR Code invalid user', ['data' => $data]);
-                return null;
-            }
-            
-            // Check if token is still valid (within 30 days)
-            if ($user->qr_generated_at && $user->qr_generated_at->addDays(30)->isPast()) {
-                Log::warning('QR Token expired', ['user_id' => $user->id]);
-                return null;
-            }
-            
-            return $user;
-            
-        } catch (\Exception $e) {
-            Log::error('QR Validation failed', [
-                'error' => $e->getMessage()
-            ]);
+  public static function validateQrCode(string $qrData): ?User
+{
+    try {
+        $decrypted = Crypt::decryptString($qrData);
+        $data = json_decode($decrypted, true);
+
+        if ($data['expires'] < now()->timestamp) {
             return null;
         }
+
+        $user = User::where('id', $data['user_id'])
+            ->where('nisn', $data['nisn'])
+            ->where('qr_token', $data['token'])
+            ->first();
+
+        if (!$user) {
+            return null;
+        }
+
+        // ❗ Cegah QR dipakai berkali-kali sebagai backup
+        if ($user->todayAttendance()?->check_in_method === 'qr') {
+            return null;
+        }
+
+        return $user;
+
+    } catch (\Exception $e) {
+        Log::error('QR Validation failed', ['error' => $e->getMessage()]);
+        return null;
     }
+}
     
     /**
      * Regenerate QR Token (if compromised)
@@ -107,4 +99,10 @@ class QrCodeService
         Log::info('QR Token regenerated', ['user_id' => $user->id]);
         return self::generateToken($user);
     }
+
+    // download qr
+    public static function getQrImagePath($user)
+{
+    return storage_path('app/public/qr/' . $user->id . '.png');
+}
 }

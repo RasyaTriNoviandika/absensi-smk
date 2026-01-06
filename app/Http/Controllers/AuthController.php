@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-use App\Helpers\PhoneHelper; // ✅ FIXED: Use centralized helper
+use App\Helpers\PhoneHelper; 
 
 class AuthController extends Controller
 {
@@ -56,7 +56,7 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        // ✅ FIXED: Use PhoneHelper for validation
+        //  FIXED: Use PhoneHelper for validation
         $validated = $request->validate([
             'nisn' => 'required|digits:10|unique:users,nisn',
             'name' => 'required|string|max:255',

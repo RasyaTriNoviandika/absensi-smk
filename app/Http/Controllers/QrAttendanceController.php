@@ -43,7 +43,7 @@ class QrCodeService
             'user_id' => $user->id,
             'nisn' => $user->nisn,
             'token' => $token,
-            'expires' => now()->addDays(30)->timestamp
+            'expires' => now()->addMinutes(5)->timestamp // QR BERLAKU HANYA 5 MENIT 
         ]));
         
         // Generate QR dengan format PNG Base64

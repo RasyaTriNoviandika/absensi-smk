@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\PhotoController; // ✅ NEW
+use App\Http\Controllers\PhotoController; 
 
 // Livewire Components
 use App\Http\Livewire\Admin\Dashboard as AdminDashboard;
@@ -32,7 +32,7 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-// ✅ NEW: Secure Photo Route (requires auth + custom middleware)
+// NEW: Secure Photo Route (requires auth + custom middleware)
 Route::get('/secure-photo/{path}', [PhotoController::class, 'show'])
     ->where('path', '.*')
     ->middleware(['auth', \App\Http\Middleware\SecurePhotoAccess::class])
@@ -66,6 +66,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     // Export Routes
     Route::get('/export/excel', [AdminController::class, 'exportExcel'])->name('export.excel');
     Route::get('/export/pdf', [AdminController::class, 'exportPdf'])->name('export.pdf');
+
+    //qr code scaning admin
+     Route::get('/qr-scanner', [App\Http\Controllers\QrCodeController::class, 'scanner'])->name('qr-scanner');
+    Route::post('/qr-scan', [App\Http\Controllers\QrCodeController::class, 'scan'])->name('qr-scan');
 });
 
 /*
@@ -74,9 +78,21 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 |--------------------------------------------------------------------------
 */
 Route::prefix('student')->name('student.')->middleware(['auth', 'student'])->group(function () {
-    // Livewire Pages
+
     Route::get('/dashboard', StudentDashboard::class)->name('dashboard');
     Route::get('/history', StudentAttendanceHistory::class)->name('history');
+
+    // QR BACKUP SISWA
+    Route::get('/qr-code', [App\Http\Controllers\QrCodeController::class, 'show'])
+        ->name('qr.code');
+
+        // Generate qr (buat qr)
+    Route::post('/qr-code/generate', [App\Http\Controllers\QrCodeController::class, 'generate'])
+        ->name('qr-code.generate');
+
+        // Download qr (unduh qr)
+    Route::get('/qr-code/download', [App\Http\Controllers\QrCodeController::class, 'download'])
+        ->name('qr-code.download');
 });
 
 /*

@@ -28,28 +28,10 @@ class AttendanceController extends Controller
         return (int) Setting::get('max_distance_meters', 100);
     }
 
-    //  FIXED: Backend validation untuk GPS (jangan percaya client!)
-    private function validateLocation($latitude, $longitude)
-    {
-        $school = $this->getSchoolCoordinates();
-        $maxDistance = $this->getMaxDistance();
-        
-        $distance = $this->calculateDistance(
-            $school['lat'], 
-            $school['lng'], 
-            $latitude, 
-            $longitude
-        );
-        
-        if ($distance > $maxDistance) {
-            throw new \Exception("Lokasi terlalu jauh dari sekolah. Jarak: " . round($distance) . "m (Max: {$maxDistance}m)");
-        }
-        
-        return $distance;
-    }
 
     public function checkIn(Request $request)
     {
+        
         $key = 'checkin:' . auth()->id();
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
@@ -75,7 +57,7 @@ class AttendanceController extends Controller
             
             //  FIXED: Lock row untuk prevent duplicate
             $existingAttendance = Attendance::where('user_id', $user->id)
-                ->whereDate('date', today())
+                ->whereDate('date', now('Asia/Jakarta')->toDateString())
                 ->lockForUpdate()
                 ->first();
             
@@ -97,19 +79,29 @@ class AttendanceController extends Controller
             
             //Gps Validation
             try{
-                GpsValidationService::validate(
+                $distance = GpsValidationService::validate(
                     $validated['latitude'], 
                     $validated['longitude'], 
                     $user
                 );
             } catch (\Exception $e) {
                 DB::rollBack();
-                RateLimiter::hit($key, 300);
+                RateLimiter::hit($key, 60);
                 return response()->json([
                     'success' => false,
                     'message' => $e->getMessage()
                 ], 400);
             }
+
+            // CEK APAKAH USER SUDAH TERDAFTAR WAJAH
+            if (!$user->face_descriptor) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data wajah belum terdaftar. Silakan daftar wajah terlebih dahulu.'
+                ], 400);
+            }
+
 
             //  VALIDASI WAJAH
             $storedDescriptor = $user->face_descriptor;
@@ -121,7 +113,7 @@ class AttendanceController extends Controller
 
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
                 DB::rollBack();
-                RateLimiter::hit($key, 300);
+                RateLimiter::hit($key, 60);
                 
                 return response()->json([
                     'success' => false,
@@ -225,7 +217,7 @@ class AttendanceController extends Controller
             $user = auth()->user();
             
             $attendance = Attendance::where('user_id', $user->id)
-                ->whereDate('date', today())
+                ->whereDate('date', now('Asia/Jakarta')->toDateString())
                 ->lockForUpdate()
                 ->first();
             
@@ -285,13 +277,27 @@ class AttendanceController extends Controller
 
             //  FIXED: Backend GPS validation
             try {
-                $distance = $this->validateLocation($validated['latitude'], $validated['longitude']);
+                $distance = GpsValidationService::validate(
+                    $validated['latitude'],
+                    $validated['longitude'],
+                    $user
+                );
             } catch (\Exception $e) {
                 DB::rollBack();
-                RateLimiter::hit($key, 300);
+                RateLimiter::hit($key, 60);
+
                 return response()->json([
                     'success' => false,
                     'message' => $e->getMessage()
+                ], 400);
+                }
+
+            // CEK APAKAH USER SUDAH TERDAFTAR WAJAH
+            if (!$user->face_descriptor) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data wajah belum terdaftar. Silakan daftar wajah terlebih dahulu.'
                 ], 400);
             }
 
@@ -305,7 +311,7 @@ class AttendanceController extends Controller
 
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
                 DB::rollBack();
-                RateLimiter::hit($key, 300);
+                RateLimiter::hit($key, 60);
 
                 Log::channel('security')->warning('Face recognition failed', [
                 'user_id' => $user->id,
@@ -397,24 +403,6 @@ class AttendanceController extends Controller
         }
     }
 
-    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
-    {
-        $R = 6371000; // meter
-
-        $phi1 = deg2rad($lat1);
-        $phi2 = deg2rad($lat2);
-        $deltaPhi = deg2rad($lat2 - $lat1);
-        $deltaLambda = deg2rad($lon2 - $lon1);
-
-        $a = sin($deltaPhi / 2) * sin($deltaPhi / 2) +
-             cos($phi1) * cos($phi2) *
-             sin($deltaLambda / 2) * sin($deltaLambda / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $R * $c;
-    }
-
     // FIXED: Simpan ke PRIVATE storage dengan struktur folder per user
    private function saveBase64ImageSecure($base64String, $prefix, $userId)
 {
@@ -427,13 +415,13 @@ class AttendanceController extends Controller
             throw new \Exception('Invalid base64 image');
         }
         
-        // 🔒 SECURITY: Verify it's actually an image
+        //  SECURITY: Verify it's actually an image
         $imageInfo = @getimagesizefromstring($decodedImage);
         if ($imageInfo === false) {
             throw new \Exception('Not a valid image');
         }
         
-        // 🔒 SECURITY: Whitelist MIME types
+        //  SECURITY: Whitelist MIME types
         $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
         if (!in_array($imageInfo['mime'], $allowedMimes)) {
             throw new \Exception('Invalid image type. Only JPEG/PNG allowed');
