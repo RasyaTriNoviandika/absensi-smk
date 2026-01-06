@@ -1,4 +1,8 @@
-<x-admin-layout title="Import Siswa">
+@extends('layouts.admin')
+
+@section('title', 'Import Siswa')
+
+@section('content')
 <div class="p-6">
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-800">Import Data Siswa</h1>
@@ -130,4 +134,4 @@
         </a>
     </div>
 </div>
-</x-admin-layout>
+@endsection

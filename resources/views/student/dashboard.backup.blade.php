@@ -585,7 +585,7 @@ async function captureAndSubmit() {
                 return;
             }
             
-            // ✅ VALIDASI FOTO BUKTI
+            // VALIDASI FOTO BUKTI
             if (!earlyPhotoBase64) {
                 alert('Harap upload foto bukti surat izin pulang cepat!');
                 return;

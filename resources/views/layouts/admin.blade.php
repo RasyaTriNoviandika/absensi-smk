@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title ?? 'Admin Dashboard' }} - SMK</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', 'Admin Dashboard') - Sistem Absensi</title>
     
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -13,7 +13,7 @@
     @stack('styles')
 </head>
 <body class="bg-gray-50">
-    <!-- Navbar -->
+    <!-- Navbar Admin -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
@@ -22,10 +22,7 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <div class="flex items-center space-x-3">
-                        <img 
-                            src="{{ asset('img/logo.png') }}"
-                            alt="Logo"
-                            class="w-10 h-10 object-contain">
+                        <img src="{{ asset('img/logo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
                         <div>
                             <h1 class="font-bold text-gray-800">Admin Panel</h1>
                             <p class="text-xs text-gray-500">NineFace</p>
@@ -117,11 +114,7 @@
 
         <!-- Main Content -->
         <main class="flex-1 min-h-screen">
-            @hasSection('content')
-                @yield('content')
-            @else
-                {{ $slot }}
-            @endif
+            @yield('content')
         </main>
     </div>
 
