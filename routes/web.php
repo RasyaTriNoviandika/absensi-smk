@@ -7,13 +7,23 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\PhotoController; 
 
 // Livewire Components
-use App\Http\Livewire\Admin\Dashboard as AdminDashboard;
-use App\Http\Livewire\Admin\Approvals as AdminApprovals;
-use App\Http\Livewire\Admin\Monitoring as AdminMonitoring;
-use App\Http\Livewire\Admin\History as AdminHistory;
-use App\Http\Livewire\Admin\Reports as AdminReports;
-use App\Http\Livewire\Student\Dashboard as StudentDashboard;
-use App\Http\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
+use App\Livewire\Admin\Dashboard as AdminDashboard;
+use App\Livewire\Admin\Approvals as AdminApprovals;
+use App\Livewire\Admin\Monitoring as AdminMonitoring;
+use App\Livewire\Admin\History as AdminHistory;
+use App\Livewire\Admin\Reports as AdminReports;
+use App\Livewire\Admin\Students;
+
+use App\Livewire\Student\Dashboard as StudentDashboard;
+use App\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
+
+// use App\Http\Livewire\Admin\Dashboard as AdminDashboard;
+// use App\Http\Livewire\Admin\Approvals as AdminApprovals;
+// use App\Http\Livewire\Admin\Monitoring as AdminMonitoring;
+// use App\Http\Livewire\Admin\History as AdminHistory;
+// use App\Http\Livewire\Admin\Reports as AdminReports;
+// use App\Http\Livewire\Student\Dashboard as StudentDashboard;
+// use App\Http\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,7 +62,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/reports', AdminReports::class)->name('reports');
     
     // Livewire Students Page
-    Route::get('/students', \App\Http\Livewire\Admin\Students::class)->name('students');
+    Route::get('/students', Students::class)->name('students');
     
     // Traditional Controller Routes (untuk non-Livewire actions)
     Route::get('/students/{user}/edit', [AdminController::class, 'editStudent'])->name('students.edit');
