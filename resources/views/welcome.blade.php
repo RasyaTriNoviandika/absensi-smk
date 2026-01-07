@@ -7,7 +7,7 @@
     @vite(['resources/css/app.css'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Tambahan gaya untuk animasi sederhana dan modernitas */
+        
         .fade-in {
             animation: fadeIn 1s ease-in-out;
         }
@@ -224,5 +224,3 @@
     </footer>
 </body>
 </html>
-
-a

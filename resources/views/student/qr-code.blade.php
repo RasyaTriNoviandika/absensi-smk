@@ -1,5 +1,9 @@
+@extends('layouts.app')
 
-<x-layouts.app>
+@section('title', 'QR Code')
+
+@section('content')
+
     <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-2xl mx-auto px-4">
         <div class="mb-6">
@@ -75,6 +79,7 @@
     </div>
 </div>
 
+@push('scripts')
 <script>
 function downloadQR() {
     const link = document.createElement('a');
@@ -113,4 +118,5 @@ async function regenerateQR() {
     }
 }
 </script>
-</x-layouts.app>
+@endpush
+@endsection
