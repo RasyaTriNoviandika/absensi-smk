@@ -3,6 +3,13 @@
     <div class="mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Monitoring Absensi Real-time</h1>
         <p class="text-sm sm:text-base text-gray-600">Pantau kehadiran siswa hari ini</p>
+        <a href="{{ route('admin.qr-scanner') }}" 
+        class="flex items-center px-4 py-3 rounded-lg 
+        {{ request()->routeIs('admin.qr-scanner') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50' }}">
+            <i class="fas fa-qrcode w-5"></i>
+            <span class="ml-3 font-medium">QR Scanner</span>
+        </a>
+
     </div>
 
     <!-- Filters -->

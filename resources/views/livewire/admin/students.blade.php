@@ -89,14 +89,14 @@
 
                                     {{-- Reset Password Button --}}
                                     <button wire:click="confirmResetPassword({{ $student->id }})"
-                                            class="text-orange-600 hover:text-orange-800 transition-colors"
+                                            class="text-orange-600 hover:text-orange-800 transition-colors cursor-pointer"
                                             title="Reset Password">
                                         <i class="fas fa-key text-lg"></i>
                                     </button>
 
                                     {{-- Delete Button --}}
                                     <button wire:click="confirmDelete({{ $student->id }})"
-                                            class="text-red-600 hover:text-red-800 transition-colors"
+                                            class="text-red-600 hover:text-red-800 transition-colors cursor-pointer"
                                             title="Hapus">
                                         <i class="fas fa-trash text-lg"></i>
                                     </button>

@@ -447,7 +447,7 @@ async function checkLocation() {
                 userLat = position.coords.latitude;
                 userLng = position.coords.longitude;
                 
-                // ✅ Tidak ada validation distance di sini
+                //  Tidak ada validation distance di sini
                 // Backend yang akan validate
                 resolve(true);
             },

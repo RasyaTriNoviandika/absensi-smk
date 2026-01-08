@@ -114,8 +114,13 @@
 
         <!-- Main Content -->
         <main class="flex-1 min-h-screen">
-            @yield('content')
-        </main>
+    @isset($slot)
+        {{ $slot }}
+    @else
+        @yield('content')
+    @endisset
+</main>
+
     </div>
 
     @livewireScripts

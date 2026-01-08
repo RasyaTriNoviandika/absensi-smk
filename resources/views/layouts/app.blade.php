@@ -44,9 +44,12 @@
 
     <!-- Main Content -->
     <main>
-        @yield('content')
+        @isset($slot)
+            {{ $slot }}
+        @else
+            @yield('content')
+        @endisset
     </main>
-
     @livewireScripts
     @stack('scripts')
 </body>

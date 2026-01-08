@@ -61,7 +61,14 @@
             </div>
         </div>
     </div>
+
+     <div class="flex space-x-3 right">
+                    <a href="{{ route('admin.monitoring') }}" 
+                       class="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-center font-semibold py-3 px-6 rounded-lg transition">
+                        <i class="fas fa-arrow-left mr-2"></i>Kembali
+                    </a>
 </div>
+   
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>

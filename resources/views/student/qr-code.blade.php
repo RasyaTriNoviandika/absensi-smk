@@ -46,6 +46,11 @@
 
             <!-- Actions -->
             <div class="space-y-3">
+                <p class="text-xs text-gray-500 mt-2 text-center">
+                    File akan tersimpan dengan nama:
+                    <strong>qr-code-nisn-{{ $user->nisn }}.png</strong>
+                </p>
+
                 <button onclick="downloadQR()" 
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold">
                     <i class="fas fa-download mr-2"></i>Download QR Code

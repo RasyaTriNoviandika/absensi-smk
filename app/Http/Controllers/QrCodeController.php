@@ -64,7 +64,7 @@ class QrCodeController extends Controller
         
         return response($imageData)
             ->header('Content-Type', 'image/png')
-            ->header('Content-Disposition', 'attachment; filename="qr-code-' . $user->nisn . '.png"');
+            ->header('Content-Disposition', 'attachment; filename="qr-code-' .  $user->nisn . '.png"');
     }
     
     // Admin: Show Scanner Page
