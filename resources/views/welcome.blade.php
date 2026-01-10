@@ -145,6 +145,10 @@
                     </div>
                     <div class="flex items-start">
                         <i class="fas fa-check text-blue-600 mr-3 mt-1 flex-shrink-0"></i>
+                        <span>Anda bisa absen menggunakan QR Code Apabila Absen wajah bermaslah </span>
+                    </div>
+                    <div class="flex items-start">
+                        <i class="fas fa-check text-blue-600 mr-3 mt-1 flex-shrink-0"></i>
                         <span>Aktifkan GPS dan izin kamera di browser Anda</span>
                     </div>
                 </div>
@@ -174,7 +178,16 @@
                         Bagaimana jika wajah tidak terdeteksi?
                     </summary>
                     <p class="mt-2 text-sm text-gray-600">
-                        Pastikan pencahayaan cukup, wajah menghadap kamera, dan tidak ada masker/kacamata. Jika tetap gagal, hubungi admin.
+                        Pastikan pencahayaan cukup, wajah menghadap kamera, dan tidak ada masker/kacamata. Jika tetap gagal, hubungi guru.
+                    </p>
+                </details>
+                
+                <details class="bg-white p-4 rounded border border-gray-300 cursor-pointer hover-lift transition-all">
+                    <summary class="font-semibold text-gray-800 text-sm sm:text-base">
+                        Bagaimana jika sistem absen wajah bermasalah?
+                    </summary>
+                    <p class="mt-2 text-sm text-gray-600">
+                        Anda bisa absen menggunakan QR Code yang disediakan di halaman absen dan pastikan sudah melapor ke guru.
                     </p>
                 </details>
 

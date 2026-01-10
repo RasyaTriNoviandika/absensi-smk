@@ -259,6 +259,18 @@ class Students extends Component
         );
     }
 
+    // EXPORT PDF
+    public function exportPDF()
+{
+    $students = $this->getStudentsQuery()->orderBy('name')->get();
+
+    $pdf = \PDF::loadView('exports.students-pdf', [
+        'students' => $students
+    ]);
+
+    return $pdf->download('siswa_' . now()->format('Y-m-d_His') . '.pdf');
+}
+
     // ==================== BULK ACTIONS ====================
     public function updatedSelectAll($value)
     {

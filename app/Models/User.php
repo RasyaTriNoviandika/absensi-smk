@@ -12,7 +12,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    // 🔒 SECURITY: Guarded untuk prevent mass assignment attack
+    //  SECURITY: Guarded untuk prevent mass assignment attack
     protected $guarded = [
         'id',
         'role',
@@ -33,9 +33,10 @@ class User extends Authenticatable
         'password' => 'hashed',
         'last_login_at' => 'datetime',
         'face_registered_at' => 'datetime',
+        'qr_generated_at' => 'datetime',
     ];
 
-    // 🔒 SECURITY FIX: Authenticated encryption dengan integrity check
+    //  SECURITY FIX: Authenticated encryption dengan integrity check
     public function setFaceDescriptorAttribute($value)
     {
         if (empty($value)) {
@@ -74,7 +75,7 @@ class User extends Authenticatable
         }
     }
 
-    // 🔒 SECURITY FIX: Decrypt dengan integrity verification
+    // SECURITY FIX: Decrypt dengan integrity verification
     public function getFaceDescriptorAttribute($value)
     {
         if (empty($value)) {
@@ -136,6 +137,11 @@ class User extends Authenticatable
         return $query->where('status', 'pending');
     }
 
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
+    }
+
     public function scopeByClass($query, $class)
     {
         return $query->where('class', $class);
@@ -160,6 +166,11 @@ class User extends Authenticatable
     public function isApproved()
     {
         return $this->status === 'approved';
+    }
+
+    public function isRejected()
+    {
+        return $this->status === 'rejected';
     }
 
     public function getFaceDescriptor()
@@ -199,7 +210,7 @@ class User extends Authenticatable
             ->exists();
     }
     
-    // 🔒 SECURITY: Track login attempts
+    //  SECURITY: Track login attempts
     public function recordLoginAttempt($success, $ipAddress)
     {
         Log::info('Login attempt', [

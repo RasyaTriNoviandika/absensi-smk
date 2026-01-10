@@ -1,11 +1,9 @@
 <?php
-// app/Services/QrCodeService.php
 
 namespace App\Services;
 
 use App\Models\User;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 
@@ -16,7 +14,6 @@ class QrCodeService
      */
     public static function generateToken(User $user): string
     {
-        // Generate token yang secure
         $token = hash_hmac('sha256', 
             $user->id . '|' . $user->nisn . '|' . now()->timestamp,
             config('app.key')
@@ -36,61 +33,49 @@ class QrCodeService
      * Generate QR Code Image (Base64)
      */
     public static function generateQrCode(User $user): string
-    {
-        $token = $user->qr_token ?? self::generateToken($user);
-        
-        // Payload: encrypted data
-        $payload = Crypt::encryptString(json_encode([
-            'user_id' => $user->id,
-            'nisn' => $user->nisn,
-            'token' => $token,
-            'expires' => now()->addDays(30)->timestamp
-        ]));
-        
-        // Generate QR dengan format PNG Base64
-        $qrCode = QrCode::format('png')
-            ->size(300)
-            ->errorCorrection('H')
-            ->generate($payload);
-        
-        return 'data:image/png;base64,' . base64_encode($qrCode);
-    }
-    
-    /**
-     * Validate QR Code
-     */
-  public static function validateQrCode(string $qrData): ?User
 {
-    try {
-        $decrypted = Crypt::decryptString($qrData);
-        $data = json_decode($decrypted, true);
+    $token = $user->qr_token ?? self::generateToken($user);
 
-        if ($data['expires'] < now()->timestamp) {
-            return null;
-        }
+    //  QR payload SUPER RINGAN
+    $payload = 'ABSEN|' . $token;
 
-        $user = User::where('id', $data['user_id'])
-            ->where('nisn', $data['nisn'])
-            ->where('qr_token', $data['token'])
-            ->first();
+    $qrCode = QrCode::format('png')
+        ->size(350)
+        ->errorCorrection('L') 
+        ->margin(3)
+        ->generate($payload);
 
-        if (!$user) {
-            return null;
-        }
-
-        // ❗ Cegah QR dipakai berkali-kali sebagai backup
-        if ($user->todayAttendance()?->check_in_method === 'qr') {
-            return null;
-        }
-
-        return $user;
-
-    } catch (\Exception $e) {
-        Log::error('QR Validation failed', ['error' => $e->getMessage()]);
+    return 'data:image/png;base64,' . base64_encode($qrCode);
+    }
+    /**
+     *  FIXED: Validate QR Code dengan TYPE (checkin/checkout)
+     */
+        public static function validateQrCode(string $qrData, string $type): ?User
+{
+    if (!str_starts_with($qrData, 'ABSEN|')) {
         return null;
     }
+
+    $token = str_replace('ABSEN|', '', $qrData);
+
+    $user = User::where('qr_token', $token)->first();
+
+    if (!$user) {
+        return null;
+    }
+
+    $attendance = $user->todayAttendance();
+
+    if ($type === 'checkin' && $attendance && $attendance->check_in) {
+        return null;
+    }
+
+    if ($type === 'checkout' && (!$attendance || !$attendance->check_in)) {
+        return null;
+    }
+
+    return $user;
 }
-    
     /**
      * Regenerate QR Token (if compromised)
      */
@@ -99,10 +84,30 @@ class QrCodeService
         Log::info('QR Token regenerated', ['user_id' => $user->id]);
         return self::generateToken($user);
     }
-
-    // download qr
-    public static function getQrImagePath($user)
-{
-    return storage_path('app/public/qr/' . $user->id . '.png');
-}
+    
+    /**
+     *  NEW: Get last QR usage
+     */
+    public static function getLastUsage(User $user): ?array
+    {
+        $lastAttendance = \App\Models\Attendance::where('user_id', $user->id)
+            ->where(function($q) {
+                $q->where('check_in_method', 'qr_backup')
+                  ->orWhere('check_out_method', 'qr_backup');
+            })
+            ->latest()
+            ->first();
+        
+        if (!$lastAttendance) {
+            return null;
+        }
+        
+        return [
+            'date' => $lastAttendance->date,
+            'type' => $lastAttendance->check_in_method === 'qr_backup' ? 'Check-In' : 'Check-Out',
+            'time' => $lastAttendance->check_in_method === 'qr_backup' 
+                ? $lastAttendance->check_in 
+                : $lastAttendance->check_out
+        ];
+    }
 }

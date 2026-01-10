@@ -68,6 +68,11 @@
                        class="flex items-center px-4 py-3 rounded-lg {{ request()->routeIs('admin.approvals') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50' }} transition-colors">
                         <i class="fas fa-user-check w-5"></i>
                         <span class="ml-3 font-medium">Approval Siswa</span>
+                        
+                        {{-- Badge (Notif Approval siswa) --}}
+                        <div class="ml-auto">
+                         <livewire:admin.approval-badge/>
+                        </div>
                     </a>
 
                     <a href="{{ route('admin.monitoring') }}" 

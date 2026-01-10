@@ -35,6 +35,24 @@
         </div>
     </div>
 
+        {{-- Approve / Reject All --}}
+        <div class="flex gap-2 mb-3">
+            <button 
+    x-data
+    @click.prevent="if (confirm('Yakin approve semua siswa?')) { $wire.approveAll() }"
+    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg cursor-pointer">
+    Approve All
+</button>
+
+<button 
+    x-data
+    @click.prevent="if (confirm('Yakin reject semua siswa?')) { $wire.rejectAll() }"
+    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg cursor-pointer">
+    Reject All
+</button>
+
+        </div>
+
     <!-- Students Table -->
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
@@ -75,10 +93,14 @@
                             </td>
                             <td class="px-3 sm:px-6 py-4 text-xs sm:text-sm">
                                 <div class="flex flex-col sm:flex-row gap-2">
-                                    <button wire:click="approve({{ $user->id }})" 
-                                            wire:loading.attr="disabled"
-                                            wire:target="approve({{ $user->id }})"
-                                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                   <button
+                                        x-data
+                                        @click.prevent="if (confirm('Yakin approve siswa {{ $user->name }}?')) { $wire.approve({{ $user->id }}) }"
+                                        wire:loading.attr="disabled"
+                                        wire:target="approve({{ $user->id }})"
+                                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition
+                                         disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer"
+                                    >
                                         <span wire:loading.remove wire:target="approve({{ $user->id }})">
                                             <i class="fas fa-check mr-1"></i>Approve
                                         </span>
@@ -86,12 +108,14 @@
                                             <i class="fas fa-spinner fa-spin mr-1"></i>Loading...
                                         </span>
                                     </button>
-                                    
-                                    <button wire:click="reject({{ $user->id }})" 
-                                            wire:loading.attr="disabled"
-                                            wire:target="reject({{ $user->id }})"
-                                            onclick="return confirm('Yakin reject siswa {{ $user->name }}?')"
-                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+
+                                    <button
+                                        x-data
+                                        @click.prevent="if (confirm('Yakin reject siswa {{ $user->name }}?')) { $wire.reject({{ $user->id }}) }"
+                                        wire:loading.attr="disabled"
+                                        wire:target="reject({{ $user->id }})"
+                                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition
+                                         disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer">
                                         <span wire:loading.remove wire:target="reject({{ $user->id }})">
                                             <i class="fas fa-times mr-1"></i>Reject
                                         </span>
@@ -99,6 +123,7 @@
                                             <i class="fas fa-spinner fa-spin mr-1"></i>Loading...
                                         </span>
                                     </button>
+                                        
                                 </div>
                             </td>
                         </tr>

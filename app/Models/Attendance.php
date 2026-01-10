@@ -17,6 +17,7 @@ class Attendance extends Model
         'check_in_status',
         'check_in_photo',
         'check_out',
+        'check_out_method',
         'check_out_photo',
         'early_checkout_photo', 
         'status',
@@ -25,8 +26,8 @@ class Attendance extends Model
 
     protected $casts = [
         'date' => 'date',
-        'check_in' => 'datetime:H:i',
-        'check_out' => 'datetime:H:i',
+        'check_in' => 'datetime',
+        'check_out' => 'datetime',
     ];
 
     // Eager loading default untuk mengurangi N+1 queries

@@ -11,6 +11,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // dummy
+        $this->call(UserDummySeeder::class);
+
         // Hanya 1 Akun Admin Default
        User::firstOrCreate(
     ['username' => 'gurusija'], // Unique username admin
@@ -93,4 +96,5 @@ class DatabaseSeeder extends Seeder
     );
 }
     }
+    
 }

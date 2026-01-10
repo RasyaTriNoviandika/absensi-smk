@@ -20,6 +20,12 @@
             </div>
 
             <!-- Alerts -->
+            @if(session('warning'))
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('warning') }}
+                </div>
+            @endif
+
             @if(session('success'))
                 <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded mb-4 text-sm">
                     <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
@@ -40,6 +46,9 @@
                     @endforeach
                 </div>
             @endif
+
+            {{-- Status user  --}}
+            @livewire('student.user-status')
 
             <!-- Login Form -->
             <div class="bg-white rounded shadow-sm p-6">

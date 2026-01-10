@@ -82,7 +82,7 @@
                                     <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
                                 @else
                                     <p class="text-xs text-gray-500 mt-1">
-                                        Format: 08xxx / 628xxx / +628xxx (10-15 digit)
+                                        Format: 08xxx / 628xxx / +628xxx (12-15 digit)
                                     </p>
                                 @enderror
                             </div>
