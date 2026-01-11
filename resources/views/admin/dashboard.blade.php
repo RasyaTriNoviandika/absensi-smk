@@ -78,7 +78,7 @@
         <!-- Weekly Chart -->
         <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Grafik 7 Hari Terakhir</h3>
-            <div class="h-64">
+            <div class="h-64" wire:ignore>
                 <canvas id="weeklyChart"></canvas>
             </div>
         </div>

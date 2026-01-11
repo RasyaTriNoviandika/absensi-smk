@@ -2,33 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Response;
+use Symfony\Component\HttpFoundation\Response;
 
 class PhotoController extends Controller
 {
     /**
-     * Serve attendance photos securely
-     * Route: /secure-photo/{path}
+     * Secure attendance photo viewer
+     * URL: /secure-photo/attendance/xxx.jpg
      */
-    public function show($path)
+    public function show(string $path)
     {
-        // Path sudah di-validate oleh SecurePhotoAccess middleware
-        
-        $fullPath = 'attendance/' . $path;
-        
-        if (!Storage::disk('local')->exists($fullPath)) {
+       
+        if (str_contains($path, '..')) {
+            abort(403);
+        }
+
+   
+        if (! str_starts_with($path, 'attendance/')) {
+            abort(403);
+        }
+
+  
+        if (! Storage::disk('public')->exists($path)) {
             abort(404, 'Photo not found');
         }
 
-        $file = Storage::disk('local')->get($fullPath);
-        $mimeType = Storage::disk('local')->mimeType($fullPath);
-
-        return Response::make($file, 200, [
-            'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
-            'Cache-Control' => 'private, max-age=3600',
-        ]);
+        return response()->file(
+            Storage::disk('public')->path($path),
+            [
+                'Content-Type'  => Storage::disk('public')->mimeType($path),
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            ]
+        );
     }
 }

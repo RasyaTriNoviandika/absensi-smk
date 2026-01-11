@@ -22,6 +22,9 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+       <!-- Global Loading Screen -->
+    <x-loading id="globalLoading">Memuat halaman login...</x-loading>
+
     <!-- Navbar -->
     <nav class="border-b border-gray-300 sticky top-0 bg-white z-50 shadow-sm">
         <div class="max-w-5xl mx-auto px-4 sm:px-6">
@@ -235,5 +238,11 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        window.addEventListener('load', function() {
+            document.getElementById('globalLoading').style.display = 'none';
+        });d
+    </script>
 </body>
 </html>

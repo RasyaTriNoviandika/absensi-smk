@@ -8,6 +8,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
+
+       <!-- Global Loading Screen -->
+    <x-loading id="globalLoading">Memuat halaman login...</x-loading>
+
     <div class="min-h-screen py-8 px-4">
         <div class="max-w-2xl mx-auto">
             <!-- Back Button -->
@@ -185,6 +189,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
     <script>
+
+        window.addEventListener('load', function() {
+            document.getElementById('globalLoading').style.display = 'none';
+        });
+
         let modelsLoaded = false;
         let faceDescriptor = null;
         let detectionInterval = null;

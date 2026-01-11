@@ -8,6 +8,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
+
+       <!-- Global Loading Screen -->
+    <x-loading id="globalLoading">Memuat halaman login...</x-loading>
+
     <div class="min-h-screen flex items-center justify-center py-12 px-4">
         <div class="max-w-md w-full">
             <!-- Logo -->
@@ -94,5 +98,11 @@
             </div>
         </div>
     </div>
+
+    <script>
+    window.addEventListener('load', function() {
+        document.getElementById('globalLoading').style.display = 'none';
+    });
+    </script>
 </body>
 </html>

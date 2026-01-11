@@ -13,6 +13,10 @@
     @stack('styles')
 </head>
 <body class="bg-gray-50">
+
+     <!-- Global loading screen -->
+    <x-loading id="globalLoading">Memuat halaman...</x-loading>
+
     <!-- Navbar Admin -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,6 +136,14 @@
     @stack('scripts')
 
     <script>
+    window.addEventListener('load', function() {
+        document.getElementById('globalLoading').style.display = 'none';
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('globalLoading').style.display = 'flex';
+    });
+
     function confirmLogout() {
         if (confirm('Yakin ingin logout?')) {
             document.getElementById('logoutForm').submit();
@@ -156,4 +168,5 @@
     }
     </script>
 </body>
+
 </html>

@@ -145,59 +145,41 @@
         </div>
     </div>
 
-    <!-- Loading Indicator -->
-    <div wire:loading class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
-            <p class="text-gray-800 font-semibold">Memuat data...</p>
-        </div>
+<!-- Loading Overlay -->
+<div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+    <div class="text-center">
+        <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-800 font-semibold">Memuat data...</p>
     </div>
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('livewire:load', function () {
+document.addEventListener('livewire:init', () => {
+    const data = @json($weeklyData);
     const ctx = document.getElementById('weeklyChart');
-    const weeklyData = @json($weeklyData);
 
-    const chart = new Chart(ctx, {
+    if (!ctx || !data.length) return;
+
+    new Chart(ctx, {
         type: 'line',
         data: {
-            labels: weeklyData.map(d => d.date),
+            labels: data.map(d => d.date),
             datasets: [{
                 label: 'Kehadiran',
-                data: weeklyData.map(d => d.count),
-                borderColor: 'rgb(37, 99, 235)',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                tension: 0.3,
-                fill: true
+                data: data.map(d => d.count),
+                tension: 0.4,
+                fill: true,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 10
-                    }
-                }
+                y: { beginAtZero: true }
             }
         }
-    });
-
-    // Update chart on data refresh
-    Livewire.on('refreshDashboard', () => {
-        chart.data.labels = @json($weeklyData).map(d => d.date);
-        chart.data.datasets[0].data = @json($weeklyData).map(d => d.count);
-        chart.update();
     });
 });
 </script>

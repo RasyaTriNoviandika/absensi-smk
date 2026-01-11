@@ -1,15 +1,15 @@
 <div class="p-4 sm:p-6 lg:p-8">
+    
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Monitoring Absensi Real-time</h1>
         <p class="text-sm sm:text-base text-gray-600">Pantau kehadiran siswa hari ini</p>
         <a href="{{ route('admin.qr-scanner') }}" 
-        class="flex items-center px-4 py-3 rounded-lg 
+        class="flex items-center px-4 py-3 rounded-lg mt-2
         {{ request()->routeIs('admin.qr-scanner') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50' }}">
             <i class="fas fa-qrcode w-5"></i>
             <span class="ml-3 font-medium">QR Scanner</span>
         </a>
-
     </div>
 
     <!-- Filters -->
@@ -43,8 +43,8 @@
             </div>
 
             <div class="flex items-end">
-                <button wire:click="loadData" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">
+                <button type="button" wire:click="loadData" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors">
                     <i class="fas fa-sync mr-2"></i>Refresh
                 </button>
             </div>
@@ -129,14 +129,33 @@
                                 @endif
                             </td>
                             <td class="px-3 sm:px-6 py-4">
-                                @if($data['attendance'] && $data['attendance']->early_checkout_photo)
-                                    <button onclick="viewPhoto('{{ asset('storage/' . $data['attendance']->early_checkout_photo) }}', '{{ $data['student']->name }}')"
-                                        class="text-blue-600 hover:text-blue-800">
-                                        <i class="fas fa-image text-lg"></i>
-                                    </button>
-                                @else
-                                    <span class="text-gray-400 text-xs">-</span>
-                                @endif
+                            @if($data['attendance'] && $data['attendance']->early_checkout_photo)
+    @php
+        $cacheKey = optional(
+            $data['attendance']->updated_at 
+            ?? $data['attendance']->created_at
+        )->timestamp ?? time();
+
+        $photoUrl = route('secure.photo', [
+            'path' => $data['attendance']->early_checkout_photo,
+            'v' => $cacheKey
+        ]);
+    @endphp
+
+    <img
+        src="{{ $photoUrl }}"
+        alt="Bukti surat pulang cepat"
+        title="Klik untuk melihat foto"
+        class="w-14 h-14 object-cover rounded-lg cursor-pointer
+               border border-gray-200 shadow-sm
+               hover:scale-105 hover:shadow-md transition"
+        onclick="viewPhoto('{{ $photoUrl }}', @js($data['student']->name))"
+    >
+@else
+    <span class="text-gray-400 text-xs">Tidak ada</span>
+@endif
+
+
                             </td>
                         </tr>
                         
@@ -166,51 +185,63 @@
          class="fixed inset-0 bg-black bg-opacity-90 hidden items-center justify-center z-50 p-4"
          onclick="closePhotoModal()">
         <div class="relative w-full max-w-4xl" onclick="event.stopPropagation()">
-            <button onclick="closePhotoModal()"
-                class="absolute -top-10 right-0 text-white hover:text-gray-300 text-2xl z-10">
+            <button type="button" onclick="closePhotoModal()"
+                class="absolute -top-12 right-0 text-white hover:text-gray-300 text-3xl z-10 transition-colors">
                 <i class="fas fa-times"></i>
             </button>
             
-            <div class="bg-white bg-opacity-90 rounded-t px-4 py-2 text-center">
-                <p class="text-sm font-semibold text-gray-800">
-                    Bukti Surat - <span id="studentName"></span>
+            <div class="bg-white bg-opacity-95 rounded-t px-4 py-3 text-center">
+                <p class="text-base font-bold text-gray-800">
+                    Bukti Surat Izin Pulang Cepat
                 </p>
+                <p class="text-sm text-gray-600" id="studentName"></p>
             </div>
             
             <div class="bg-white rounded-b overflow-hidden">
-                <img id="modalPhoto" class="w-full h-auto max-h-[70vh] object-contain">
+                <img id="modalPhoto" src="" alt="Bukti Pulang Cepat" class="w-full h-auto max-h-[70vh] object-contain">
             </div>
             
-            <div class="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
-                <a id="downloadPhoto" download
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm text-center">
-                    <i class="fas fa-download mr-2"></i>Download
+            <div class="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
+                <a id="downloadPhoto" href="" download
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-semibold text-center transition-colors">
+                    <i class="fas fa-download mr-2"></i>Download Foto
                 </a>
-                <button onclick="closePhotoModal()"
-                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
+                <button type="button" onclick="closePhotoModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors">
                     <i class="fas fa-times mr-2"></i>Tutup
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div wire:loading class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
-            <p class="text-gray-800 font-semibold">Memuat data...</p>
-        </div>
+<!-- Loading Overlay -->
+<div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+    <div class="text-center">
+        <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-800 font-semibold">Memuat data...</p>
     </div>
 </div>
 
 @push('scripts')
 <script>
 function viewPhoto(photoUrl, studentName) {
-    document.getElementById('modalPhoto').src = photoUrl;
-    document.getElementById('studentName').textContent = studentName;
-    document.getElementById('downloadPhoto').href = photoUrl;
-    
     const modal = document.getElementById('photoModal');
+    const img = document.getElementById('modalPhoto');
+    const nameEl = document.getElementById('studentName');
+    const downloadLink = document.getElementById('downloadPhoto');
+    
+    // Validasi URL
+    if (!photoUrl || photoUrl === '') {
+        console.error('URL foto tidak valid');
+        return;
+    }
+    
+    // Set image dan info
+    img.src = photoUrl;
+    nameEl.textContent = studentName || 'Tidak diketahui';
+    downloadLink.href = photoUrl;
+    
+    // Show modal
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     document.body.style.overflow = 'hidden';
@@ -223,8 +254,16 @@ function closePhotoModal() {
     document.body.style.overflow = 'auto';
 }
 
+// Close modal dengan Escape key
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closePhotoModal();
+    if (e.key === 'Escape') {
+        closePhotoModal();
+    }
+});
+
+// Pastikan modal tertutup saat halaman dimuat
+document.addEventListener('DOMContentLoaded', function() {
+    closePhotoModal();
 });
 </script>
 @endpush

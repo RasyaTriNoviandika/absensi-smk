@@ -109,14 +109,33 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @if($attendance->early_checkout_photo)
-                                    <button onclick="openPhotoModal('{{ asset('storage/' . $attendance->early_checkout_photo) }}')" 
-                                            class="text-blue-600 hover:text-blue-800">
-                                        <i class="fas fa-image text-lg"></i>
-                                    </button>
-                                @else
-                                    <span class="text-gray-400">-</span>
-                                @endif
+                               @if($attendance->early_checkout_photo)
+    @php
+        $cacheKey = optional(
+            $attendance->updated_at 
+            ?? $attendance->created_at
+        )->timestamp ?? time();
+
+        $photoUrl = route('secure.photo', [
+            'path' => $attendance->early_checkout_photo,
+            'v' => $cacheKey
+        ]);
+    @endphp
+
+    <img
+        src="{{ $photoUrl }}"
+        alt="Bukti surat pulang cepat"
+        title="Klik untuk melihat foto"
+        class="w-14 h-14 object-cover rounded-lg cursor-pointer
+               border border-gray-200 shadow-sm
+               hover:scale-105 hover:shadow-md transition"
+        onclick="openPhotoModal('{{ $photoUrl }}', @js($attendance->user->name))"
+    >
+@else
+    <span class="text-gray-400 text-xs">Tidak ada</span>
+@endif
+
+
                             </td>
                         </tr>
                     @empty
@@ -136,42 +155,78 @@
     </div>
 
     <!-- Photo Modal -->
-    <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg p-4 max-w-2xl w-full relative">
-            <button onclick="closePhotoModal()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 z-10">
-                <i class="fas fa-times text-xl"></i>
+    <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-90 hidden items-center justify-center z-50 p-4" onclick="closePhotoModal()">
+        <div class="relative w-full max-w-4xl" onclick="event.stopPropagation()">
+            <button type="button" onclick="closePhotoModal()" class="absolute -top-12 right-0 text-white hover:text-gray-300 text-3xl z-10">
+                <i class="fas fa-times"></i>
             </button>
-            <img id="photoModalImage" src="" alt="Bukti Pulang Cepat" class="w-full h-auto rounded-lg">
+            
+            <div class="bg-white bg-opacity-95 rounded-t px-4 py-3 text-center">
+                <p class="text-base font-bold text-gray-800">
+                    Bukti Surat Izin Pulang Cepat
+                </p>
+                <p class="text-sm text-gray-600" id="photoModalStudentName"></p>
+            </div>
+            
+            <div class="bg-white rounded-b overflow-hidden">
+                <img id="photoModalImage" src="" alt="Bukti Pulang Cepat" class="w-full h-auto max-h-[70vh] object-contain">
+            </div>
+
+            <div class="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
+                <a id="downloadPhotoLink" href="" download class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-semibold text-center transition-colors">
+                    <i class="fas fa-download mr-2"></i>Download Foto
+                </a>
+                <button type="button" onclick="closePhotoModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    <i class="fas fa-times mr-2"></i>Tutup
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div wire:loading class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
-            <p class="text-gray-800 font-semibold">Memuat data...</p>
-        </div>
+   <!-- Loading Overlay -->
+<div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+    <div class="text-center">
+        <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-800 font-semibold">Memuat data...</p>
     </div>
 </div>
 
 @push('scripts')
 <script>
-function openPhotoModal(imageUrl) {
-    document.getElementById('photoModalImage').src = imageUrl;
-    document.getElementById('photoModal').classList.remove('hidden');
-    document.getElementById('photoModal').classList.add('flex');
+function openPhotoModal(imageUrl, studentName) {
+    const modal = document.getElementById('photoModal');
+    const img = document.getElementById('photoModalImage');
+    const nameEl = document.getElementById('photoModalStudentName');
+    const downloadLink = document.getElementById('downloadPhotoLink');
+    
+    // Set image and student name
+    img.src = imageUrl;
+    nameEl.textContent = studentName || 'Tidak diketahui';
+    downloadLink.href = imageUrl;
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
 }
 
 function closePhotoModal() {
-    document.getElementById('photoModal').classList.add('hidden');
-    document.getEclementById('photoModal').classList.remove('flex');
+    const modal = document.getElementById('photoModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = 'auto';
 }
 
-// Close modal when clicking outside
-document.getElementById('photoModal')?.addEventListener('click', function(e) {
-    if (e.target === this) {
+// Close modal dengan tombol Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
         closePhotoModal();
     }
+});
+
+// Pastikan modal tertutup saat halaman dimuat
+document.addEventListener('DOMContentLoaded', function() {
+    closePhotoModal();
 });
 </script>
 @endpush

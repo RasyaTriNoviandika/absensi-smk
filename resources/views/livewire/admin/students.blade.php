@@ -214,12 +214,10 @@
         </div>
     @endif
 
-    {{-- Loading Overlay --}}
-    <div wire:loading.flex wire:target="deleteStudent,resetPassword" 
-         class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-40">
-        <div class="bg-white rounded-lg p-6 text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
-            <p class="text-gray-800 font-semibold">Memproses...</p>
-        </div>
+   <!-- Loading Overlay -->
+<div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+    <div class="text-center">
+        <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-800 font-semibold">Memuat data...</p>
     </div>
 </div>

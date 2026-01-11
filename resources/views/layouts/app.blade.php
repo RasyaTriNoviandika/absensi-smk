@@ -8,11 +8,15 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     @livewireStyles
     @stack('styles')
 </head>
 <body class="bg-gray-50">
+    <!-- Global Loading Screen -->
+    <x-loading id="globalLoading">Memuat halaman...</x-loading>
+
     <!-- Navbar Student -->
     <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,7 +54,20 @@
             @yield('content')
         @endisset
     </main>
+
     @livewireScripts
     @stack('scripts')
+
+    <script>
+        // Hide loading on page load
+        window.addEventListener('load', function() {
+            document.getElementById('globalLoading').style.display = 'none';
+        });
+
+        // Show loading on page navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('globalLoading').style.display = 'flex';
+        });
+    </script>
 </body>
 </html>

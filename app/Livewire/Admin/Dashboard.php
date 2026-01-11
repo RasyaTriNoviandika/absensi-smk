@@ -13,8 +13,7 @@ class Dashboard extends Component
     public $weeklyData = [];
     public $recentAttendances = [];
 
-    // Auto refresh setiap 30 detik
-    protected $listeners = ['refreshDashboard' => 'loadData'];
+    protected $listeners = ['forceRefresh' => 'loadData'];
 
     public function mount()
     {
@@ -23,10 +22,9 @@ class Dashboard extends Component
 
     public function loadData()
     {
-        // Cache stats untuk 5 menit
         $this->stats = Cache::remember('admin_dashboard_stats_' . today()->toDateString(), 300, function () {
             $totalStudents = User::students()->approved()->count();
-            
+
             $todayStats = Attendance::whereDate('date', today())
                 ->selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')
@@ -41,7 +39,6 @@ class Dashboard extends Component
             ];
         });
 
-        // Weekly chart data
         $this->weeklyData = Cache::remember('admin_weekly_data_' . today()->toDateString(), 300, function () {
             $raw = Attendance::selectRaw('DATE(date) as date, COUNT(*) as count')
                 ->where('date', '>=', today()->subDays(6))
@@ -53,6 +50,7 @@ class Dashboard extends Component
             for ($i = 6; $i >= 0; $i--) {
                 $d = today()->subDays($i);
                 $key = $d->format('Y-m-d');
+
                 $data[] = [
                     'date' => $d->format('d M'),
                     'count' => $raw->get($key, 0)
@@ -61,12 +59,14 @@ class Dashboard extends Component
             return $data;
         });
 
-        // Recent attendances (tidak di-cache karena real-time)
         $this->recentAttendances = Attendance::with(['user:id,name,class'])
             ->select('id', 'user_id', 'status', 'created_at')
             ->latest()
             ->limit(10)
             ->get();
+
+        // chart update
+        $this->dispatch('updateChart', $this->weeklyData);
     }
 
     public function render()
