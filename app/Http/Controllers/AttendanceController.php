@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Services\GpsValidationService;
+use Illuminate\Support\Facades\Cache;
 
 class AttendanceController extends Controller
 {
@@ -28,178 +29,169 @@ class AttendanceController extends Controller
         return (int) Setting::get('max_distance_meters', 100);
     }
 
+public function checkIn(Request $request)
+{
+    $user = auth()->user();
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User tidak terautentikasi.'
+        ], 401);
+    }
 
-    public function checkIn(Request $request)
-    {
-        
-        $key = 'checkin:' . auth()->id();
+    $lock = Cache::lock(
+        "attendance:checkin:{$user->id}:" . now('Asia/Jakarta')->toDateString(),
+        10
+    );
+
+    if (!$lock->get()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Proses sedang berlangsung. Tunggu beberapa detik.'
+        ], 429);
+    }
+
+    $key = 'checkin:' . $user->id;
+
+    try {
+        // RATE LIMIT
         if (RateLimiter::tooManyAttempts($key, 3)) {
-            $seconds = RateLimiter::availableIn($key);
             return response()->json([
                 'success' => false,
-                'message' => "Terlalu banyak percobaan. Coba lagi dalam {$seconds} detik."
+                'message' => 'Terlalu banyak percobaan. Coba lagi nanti.'
             ], 429);
         }
 
-        //  FIXED: Wrap dalam DB transaction untuk prevent race condition
         DB::beginTransaction();
-        
-        try {
-            $user = auth()->user();
-            
-            if (!$user) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User tidak terautentikasi.'
-                ], 401);
-            }
-            
-            //  FIXED: Lock row untuk prevent duplicate
-            $existingAttendance = Attendance::where('user_id', $user->id)
-                ->whereDate('date', now('Asia/Jakarta')->toDateString())
-                ->lockForUpdate()
-                ->first();
-            
-            if ($existingAttendance && $existingAttendance->check_in) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah absen masuk hari ini.'
-                ], 400);
-            }
 
-            $validated = $request->validate([
-                'face_descriptor' => 'required|array|size:128',
-                'photo' => 'required|string',
-                'latitude' => 'required|numeric|between:-90,90',
-                'longitude' => 'required|numeric|between:-180,180',
-            ]);
+        // LOCK ATTENDANCE ROW
+        $existingAttendance = Attendance::where('user_id', $user->id)
+            ->whereDate('date', now('Asia/Jakarta')->toDateString())
+            ->lockForUpdate()
+            ->first();
 
-            
-            //Gps Validation
-            try{
-                $distance = GpsValidationService::validate(
-                    $validated['latitude'], 
-                    $validated['longitude'], 
-                    $user
-                );
-            } catch (\Exception $e) {
-                DB::rollBack();
-                RateLimiter::hit($key, 60);
-                return response()->json([
-                    'success' => false,
-                    'message' => $e->getMessage()
-                ], 400);
-            }
+        if ($existingAttendance && $existingAttendance->check_in) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda sudah absen masuk hari ini.'
+            ], 400);
+        }
 
-            // CEK APAKAH USER SUDAH TERDAFTAR WAJAH
-            if (!$user->face_descriptor) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data wajah belum terdaftar. Silakan daftar wajah terlebih dahulu.'
-                ], 400);
-            }
+        $validated = $request->validate([
+            'face_descriptor' => 'required|array|size:128',
+            'photo' => 'required|string',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
 
+        // GPS VALIDATION
+        $distance = GpsValidationService::validate(
+            $validated['latitude'],
+            $validated['longitude'],
+            $user
+        );
 
-            //  VALIDASI WAJAH
-            $storedDescriptor = $user->face_descriptor;
-            if (!is_array($storedDescriptor)) {
-                $storedDescriptor = json_decode($storedDescriptor, true);
-            }
+        if (!$user->face_descriptor) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Data wajah belum terdaftar.'
+            ], 400);
+        }
 
-            $threshold = (float) Setting::get('face_match_threshold', 0.50);
+        // FACE MATCH
+        $storedDescriptor = is_array($user->face_descriptor)
+            ? $user->face_descriptor
+            : json_decode($user->face_descriptor, true);
 
-            if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
-                DB::rollBack();
-                RateLimiter::hit($key, 60);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Wajah tidak cocok. Pastikan pencahayaan cukup dan wajah terlihat jelas.'
-                ], 400);
-            }
+        $threshold = (float) Setting::get('face_match_threshold', 0.5);
 
-            // FIXED: Simpan ke PRIVATE storage
-            try {
-                $photoPath = $this->saveBase64ImageSecure($validated['photo'], 'checkin', $user->id);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error('Photo save failed: ' . $e->getMessage());
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Gagal menyimpan foto. Coba lagi.'
-                ], 500);
-            }
+        if (!FaceRecognitionService::isMatch(
+            $validated['face_descriptor'],
+            $storedDescriptor,
+            $threshold
+        )) {
+            RateLimiter::hit($key, 60);
+            DB::rollBack();
 
-            //  TENTUKAN STATUS
-            $checkInTime = Carbon::now('Asia/Jakarta');
-            $limitTime = Setting::get('check_in_time_limit', '07:30');
-            $limitDateTime = Carbon::today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
-            $status = $checkInTime->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
+            return response()->json([
+                'success' => false,
+                'message' => 'Wajah tidak cocok.'
+            ], 400);
+        }
 
-            //  FIXED: Use updateOrCreate untuk handle race condition
-            $attendance = Attendance::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'date' => $checkInTime->toDateString(),
-                ],
-                [
-                    'check_in' => $checkInTime->toTimeString(),
-                    'check_in_status' => $status,
-                    'check_in_photo' => $photoPath,
-                    'status' => $status,
-                    'latitude' => $validated['latitude'],
-                    'longitude' => $validated['longitude'],
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                ]
+        // SAVE PHOTO
+        $photoPath = $this->saveBase64ImageSecure(
+            $validated['photo'],
+            'checkin',
+            $user->id
+        );
+
+        // STATUS
+        $now = Carbon::now('Asia/Jakarta');
+        $limit = Carbon::today('Asia/Jakarta')
+            ->setTimeFromTimeString(
+                Setting::get('check_in_time_limit', '07:30')
             );
 
-            DB::commit();
+        $status = $now->lessThanOrEqualTo($limit) ? 'hadir' : 'terlambat';
 
-            //  LOG ACTIVITY
-            Log::info('Check-in success', [
+        Attendance::updateOrCreate(
+            [
                 'user_id' => $user->id,
-                'time' => $checkInTime->format('H:i:s'),
+                'date' => $now->toDateString(),
+            ],
+            [
+                'check_in' => $now->toTimeString(),
+                'check_in_status' => $status,
+                'check_in_photo' => $photoPath,
                 'status' => $status,
-                'distance' => round($distance, 2) . 'm'
-            ]);
+                'latitude' => $validated['latitude'],
+                'longitude' => $validated['longitude'],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]
+        );
 
-            RateLimiter::clear($key);
+        DB::commit();
+        RateLimiter::clear($key);
 
-            return response()->json([
-                'success' => true,
-                'message' => $status === 'hadir' 
-                    ? 'Absen masuk berhasil! Anda tepat waktu.' 
-                    : 'Absen masuk berhasil, namun Anda terlambat.',
-                'status' => $status,
-                'time' => $checkInTime->format('H:i'),
-            ]);
-            
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak valid. Pastikan wajah terdeteksi dan GPS aktif.',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('CheckIn Error: ' . $e->getMessage(), [
-                'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan sistem. Silakan coba lagi atau hubungi admin.',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
-        }
+        $user->update([
+            'qr_token_used_at' => now(),
+        ]);
+
+        Log::info('Check-in success', [
+            'user_id' => $user->id,
+            'status' => $status,
+            'distance' => round($distance, 2) . 'm'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Absen masuk berhasil.',
+            'status' => $status
+        ]);
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        Log::error('CheckIn Error', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan sistem.'
+        ], 500);
+
+    } finally {
+        optional($lock)->release();
     }
+}
 
+   
     public function checkOut(Request $request)
     {
         $key = 'checkout:' . auth()->id();
@@ -360,6 +352,10 @@ class AttendanceController extends Controller
             $attendance->update($updateData);
 
             DB::commit();
+
+            $user->update([
+                'qr_token_used_at' => now(),
+            ]);
 
             Log::info('Check-out success', [
                 'user_id' => $user->id,

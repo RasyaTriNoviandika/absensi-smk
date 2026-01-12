@@ -22,7 +22,7 @@ class SecurePhotoAccess
 
         $photoPath = $request->route('path');
         
-        // 🔒 SECURITY FIX: Prevent path traversal
+        // SECURITY FIX: Prevent path traversal
         if (str_contains($photoPath, '..') || 
             str_contains($photoPath, '//') ||
             str_contains($photoPath, '\\') ||
@@ -30,7 +30,7 @@ class SecurePhotoAccess
             abort(403, 'Invalid path');
         }
         
-        // 🔒 SECURITY FIX: Verify ownership via database
+        //  SECURITY FIX: Verify ownership via database
         $attendance = Attendance::where('user_id', $user->id)
             ->where(function($q) use ($photoPath) {
                 $q->where('check_in_photo', 'like', "%{$photoPath}%")

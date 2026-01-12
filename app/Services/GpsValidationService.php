@@ -90,7 +90,7 @@ class GpsValidationService
     }
     
     /**
-     * 🔒 SECURITY: Detect koordinat static yang mencurigakan
+     *  SECURITY: Detect koordinat static yang mencurigakan
      * (Terlalu persis = kemungkinan fake GPS app)
      */
     private static function isSuspiciousStaticCoordinate($lat, $lng, User $user)
@@ -119,7 +119,7 @@ class GpsValidationService
     }
     
     /**
-     * 🔒 SECURITY: Velocity check
+     * SECURITY: Velocity check
      * Prevent "teleportation" (coordinate jump yang tidak masuk akal)
      */
     private static function isSuspiciousVelocity($lat, $lng, User $user)
@@ -175,7 +175,7 @@ class GpsValidationService
     }
     
     /**
-     * 🔒 SECURITY: Detect pola harian yang mencurigakan
+     *  SECURITY: Detect pola harian yang mencurigakan
      */
     private static function hasSuspiciousDailyPattern($lat, $lng, User $user)
     {

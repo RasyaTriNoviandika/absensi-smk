@@ -337,7 +337,7 @@ setInterval(() => {
 // Face recognition variables
 const SCHOOL_LAT = -6.2706589; 
 const SCHOOL_LNG = 106.9593685; 
-const MAX_DISTANCE = 50000; // 50km untuk dev
+const MAX_DISTANCE = 100; // 100 meters
 
 let modelsLoaded = false;
 let stream = null;
@@ -635,10 +635,10 @@ async function captureAndSubmit() {
             longitude: userLng
         };
 
-        // ✅ Tambahkan early_reason dan early_photo
+        //  Tambahkan early_reason dan early_photo
         if (currentType === 'checkout' && !document.getElementById('earlyCheckoutNotice').classList.contains('hidden')) {
             requestData.early_reason = document.getElementById('earlyReason').value.trim();
-            requestData.early_photo = earlyPhotoBase64; // ✅ Kirim foto bukti
+            requestData.early_photo = earlyPhotoBase64; // 
         }
 
         const response = await fetch(url, {

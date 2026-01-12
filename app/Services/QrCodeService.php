@@ -21,7 +21,8 @@ class QrCodeService
         
         $user->update([
             'qr_token' => $token,
-            'qr_generated_at' => now()
+            'qr_generated_at' => now(),
+            'qr_token_used_at' => null, // reset qr tiap generate ulang
         ]);
         
         Log::info('QR Token generated', ['user_id' => $user->id]);
@@ -50,8 +51,8 @@ class QrCodeService
     /**
      *  FIXED: Validate QR Code dengan TYPE (checkin/checkout)
      */
-        public static function validateQrCode(string $qrData, string $type): ?User
-{
+    public static function validateQrCode(string $qrData, string $type): ?User
+    {
     if (!str_starts_with($qrData, 'ABSEN|')) {
         return null;
     }
@@ -60,7 +61,16 @@ class QrCodeService
 
     $user = User::where('qr_token', $token)->first();
 
-    if (!$user) {
+    if ($user->qr_token_used_at !== null) {
+        Log::warning('Qr Sudah Pernah Dipakai', ['user_id' => $user->id]);
+        return null;
+    }
+
+    if (
+        !$user->qr_generated_at ||
+        $user->qr_generated_at->addMinutes(5)->isPast()
+    ) {
+        Log::warning('QR Sudah Expired', ['user_id' => $user->id]);
         return null;
     }
 

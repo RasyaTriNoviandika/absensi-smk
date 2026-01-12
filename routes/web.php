@@ -114,3 +114,4 @@ Route::middleware(['auth', 'student'])->prefix('attendance')->name('attendance.'
     Route::post('/checkin', [AttendanceController::class, 'checkIn'])->name('checkin');
     Route::post('/checkout', [AttendanceController::class, 'checkOut'])->name('checkout');
 });
+
