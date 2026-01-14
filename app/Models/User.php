@@ -12,13 +12,34 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    //  SECURITY: Guarded untuk prevent mass assignment attack
+    // ✅ FIXED: Hapus face_descriptor dari guarded
     protected $guarded = [
         'id',
         'role',
         'status',
-        'face_descriptor',
+        // 'face_descriptor',  ❌ DIHAPUS!
+        // 'face_descriptor_hash',  ❌ DIHAPUS!
+    ];
+
+    // ✅ ATAU gunakan $fillable (lebih aman)
+    protected $fillable = [
+        'nisn',
+        'username',
+        'name',
+        'email',
+        'password',
+        'class',
+        'phone',
+        'address',
+        'face_descriptor',  // ✅ DITAMBAHKAN
         'face_descriptor_hash',
+        'profile_photo',
+        'last_login_at',
+        'last_login_ip',
+        'face_registered_at',
+        'qr_generated_at',
+        'qr_token',
+        'qr_token_used_at',
     ];
 
     protected $hidden = [
@@ -36,7 +57,7 @@ class User extends Authenticatable
         'qr_generated_at' => 'datetime',
     ];
 
-    //  SECURITY FIX: Authenticated encryption dengan integrity check
+    // ✅ FIXED: Setter untuk face_descriptor
     public function setFaceDescriptorAttribute($value)
     {
         if (empty($value)) {
@@ -45,25 +66,37 @@ class User extends Authenticatable
             return;
         }
         
-        if (is_array($value)) {
-            $value = json_encode($value);
+        // Jika sudah string JSON, simpan langsung
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+        
+        // Harus array dengan 128 elemen
+        if (!is_array($value) || count($value) !== 128) {
+            Log::error('Invalid face descriptor', [
+                'user_id' => $this->id ?? 'new',
+                'type' => gettype($value),
+                'count' => is_array($value) ? count($value) : 0
+            ]);
+            throw new \Exception('Face descriptor must be array of 128 numbers');
         }
         
         try {
+            $jsonValue = json_encode($value);
+            
             // Encrypt dengan Laravel Crypt (AES-256-CBC)
-            $encrypted = Crypt::encryptString($value);
+            $encrypted = Crypt::encryptString($jsonValue);
             
             // Generate HMAC untuk integrity verification
-            $hash = hash_hmac('sha256', $value, config('app.key'));
+            $hash = hash_hmac('sha256', $jsonValue, config('app.key'));
             
             $this->attributes['face_descriptor'] = $encrypted;
             $this->attributes['face_descriptor_hash'] = $hash;
             $this->attributes['face_registered_at'] = now();
             
-            // Audit log
-            Log::info('Face descriptor encrypted', [
+            Log::info('Face descriptor saved', [
                 'user_id' => $this->id ?? 'new',
-                'timestamp' => now(),
+                'username' => $this->username ?? 'unknown'
             ]);
             
         } catch (\Exception $e) {
@@ -71,11 +104,11 @@ class User extends Authenticatable
                 'error' => $e->getMessage(),
                 'user_id' => $this->id ?? 'new',
             ]);
-            throw new \Exception('Failed to secure face descriptor');
+            throw new \Exception('Failed to secure face descriptor: ' . $e->getMessage());
         }
     }
 
-    // SECURITY FIX: Decrypt dengan integrity verification
+    // ✅ FIXED: Getter untuk face_descriptor
     public function getFaceDescriptorAttribute($value)
     {
         if (empty($value)) {
@@ -96,10 +129,9 @@ class User extends Authenticatable
                         'timestamp' => now(),
                     ]);
 
-                    // manual reveiew
-                    $this->update(['status' => 'pending' , 'notes' => 'Security Check Failed']);
+                    // Manual review
+                    $this->update(['status' => 'pending', 'notes' => 'Security Check Failed']);
                     
-                    // Return null untuk trigger re-registration
                     return null;
                 }
             }
@@ -210,7 +242,7 @@ class User extends Authenticatable
             ->exists();
     }
     
-    //  SECURITY: Track login attempts
+    // SECURITY: Track login attempts
     public function recordLoginAttempt($success, $ipAddress)
     {
         Log::info('Login attempt', [

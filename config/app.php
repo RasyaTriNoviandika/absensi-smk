@@ -124,7 +124,7 @@ return [
     ],
 
     // PROVIDERS
-   'providers' => [
+  'providers' => [
 
     Illuminate\Auth\AuthServiceProvider::class,
     Illuminate\Broadcasting\BroadcastServiceProvider::class,
@@ -154,9 +154,6 @@ return [
      */
     App\Providers\TelescopeServiceProvider::class,
 
-],
-
-    
-
+],  
 ];
 

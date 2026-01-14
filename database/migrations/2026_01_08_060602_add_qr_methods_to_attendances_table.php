@@ -6,29 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('attendances', function (Blueprint $table) {
-    if (!Schema::hasColumn('attendances', 'check_out_method')) {
-        $table->string('check_out_method')->nullable();
+        Schema::table('users', function (Blueprint $table) {
+            // Field ini untuk tracking (optional), tapi QR logic tidak bergantung padanya lagi
+            if (!Schema::hasColumn('users', 'qr_token_used_at')) {
+                $table->timestamp('qr_token_used_at')->nullable()->after('qr_generated_at');
+            }
+        });
     }
 
-    if (!Schema::hasColumn('attendances', 'ip_address')) {
-        $table->string('ip_address')->nullable();
-    }
-});
-    }
-
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('attendances', function (Blueprint $table) {
-            //
+        Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'qr_token_used_at')) {
+                $table->dropColumn('qr_token_used_at');
+            }
         });
     }
 };

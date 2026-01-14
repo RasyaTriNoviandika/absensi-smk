@@ -1,48 +1,64 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\Attendance;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class SecurePhotoAccess
 {
-    public function handle(Request $request, Closure $next)
+    /**
+     * Validasi akses foto absensi
+     *
+     * Rules:
+     * - Admin: akses semua foto
+     * - Student: hanya foto milik sendiri
+     * - Guest / role lain: ditolak (403)
+     */
+    public function handle(Request $request, Closure $next): Response
     {
         $user = auth()->user();
-        
+
+        // 🚨 Middleware RESOURCE: TIDAK BOLEH REDIRECT
         if (!$user) {
-            abort(403, 'Unauthorized');
+            abort(403);
         }
 
-        // Admin bisa akses semua foto
-        if ($user->isAdmin()) {
+        $path = (string) $request->route('path');
+
+        // ✅ ADMIN: FULL ACCESS
+        if ($user->role === 'admin') {
             return $next($request);
         }
 
-        $photoPath = $request->route('path');
-        
-        // SECURITY FIX: Prevent path traversal
-        if (str_contains($photoPath, '..') || 
-            str_contains($photoPath, '//') ||
-            str_contains($photoPath, '\\') ||
-            preg_match('/%2e|%2f|%5c/i', $photoPath)) {
-            abort(403, 'Invalid path');
-        }
-        
-        //  SECURITY FIX: Verify ownership via database
-        $attendance = Attendance::where('user_id', $user->id)
-            ->where(function($q) use ($photoPath) {
-                $q->where('check_in_photo', 'like', "%{$photoPath}%")
-                  ->orWhere('check_out_photo', 'like', "%{$photoPath}%")
-                  ->orWhere('early_checkout_photo', 'like', "%{$photoPath}%");
-            })
-            ->first();
-        
-        if (!$attendance) {
-            abort(403, 'You can only access your own photos');
+        // ✅ STUDENT: HANYA FOTO SENDIRI
+        if ($user->role === 'student') {
+
+            /**
+             * Contoh path:
+             * attendance/user_296/2026-01-13/early_letter_xxx.jpg
+             */
+            if (preg_match('/user_(\d+)\//', $path, $matches)) {
+                $photoUserId = (int) $matches[1];
+
+                if ($photoUserId === (int) $user->id) {
+                    return $next($request);
+                }
+            }
+
+            // ⛔ Akses tidak sah
+            Log::warning('Unauthorized photo access attempt', [
+                'user_id' => $user->id,
+                'path'    => $path,
+                'ip'      => $request->ip(),
+            ]);
+
+            abort(403);
         }
 
-        return $next($request);
+        // ⛔ Role lain ditolak
+        abort(403);
     }
 }

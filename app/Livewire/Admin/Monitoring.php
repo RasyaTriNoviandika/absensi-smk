@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\User;
 use App\Models\Attendance;
 use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 
 class Monitoring extends Component
 {
@@ -19,6 +20,13 @@ class Monitoring extends Component
     public $hadir = 0;
     public $terlambat = 0;
     public $alpha = 0;
+
+    public $showPhotoModal = false;
+    public $modalPhoto = null;
+    public $modalPhotoType = '';
+    public $modalStudentName = '';
+    public $modalTime = '';
+    public $modalNotes = '';
 
     protected $queryString = ['date', 'class', 'status'];
 
@@ -44,6 +52,61 @@ class Monitoring extends Component
         $this->loadData();
     }
 
+    //  TAMBAHKAN: Method untuk show photo modal
+    public function showPhoto($userId, $type = 'checkin')
+    {
+        // Cari attendance dari user
+        $attendance = Attendance::with('user:id,nisn,name,class')
+            ->where('user_id', $userId)
+            ->whereDate('date', $this->date)
+            ->first();
+        
+        if (!$attendance) {
+            $this->dispatch('alert', [
+                'type' => 'error',
+                'message' => 'Data absensi tidak ditemukan'
+            ]);
+            return;
+        }
+
+        // Set data modal
+        $this->modalStudentName = $attendance->user->name . ' (' . $attendance->user->nisn . ')';
+        
+        if ($type === 'checkin') {
+            $this->modalPhoto = $attendance->check_in_photo;
+            $this->modalTime = $attendance->check_in 
+                ? Carbon::parse($attendance->check_in)->format('H:i') 
+                : '-';
+            $this->modalPhotoType = 'Check-In';
+        } elseif ($type === 'checkout') {
+            $this->modalPhoto = $attendance->check_out_photo;
+            $this->modalTime = $attendance->check_out 
+                ? Carbon::parse($attendance->check_out)->format('H:i') 
+                : '-';
+            $this->modalPhotoType = 'Check-Out';
+        } else { // early_checkout
+            $this->modalPhoto = $attendance->early_checkout_photo;
+            $this->modalTime = $attendance->check_out 
+                ? Carbon::parse($attendance->check_out)->format('H:i') 
+                : '-';
+            $this->modalPhotoType = 'Surat Pulang Cepat';
+        }
+
+        $this->modalNotes = $attendance->notes ?? '';
+        $this->showPhotoModal = true;
+    }
+
+    // TAMBAHKAN: Method untuk close modal
+    public function closePhotoModal()
+    {
+        $this->showPhotoModal = false;
+        $this->modalPhoto = null;
+        $this->modalPhotoType = '';
+        $this->modalStudentName = '';
+        $this->modalTime = '';
+        $this->modalNotes = '';
+    }
+
     public function loadData()
     {
         $cacheKey = "monitoring_{$this->date}_{$this->class}_{$this->status}";
@@ -57,7 +120,8 @@ class Monitoring extends Component
 
             $attendances = Attendance::whereDate('date', $this->date)
                 ->with('user:id,nisn,name,class')
-                ->select('id', 'user_id', 'date', 'check_in', 'check_out', 'status', 'notes', 'early_checkout_photo')
+                ->select('id', 'user_id', 'date', 'check_in', 'check_out', 'status', 'notes', 
+                         'check_in_photo', 'check_out_photo', 'early_checkout_photo')
                 ->get()
                 ->keyBy('user_id');
 
@@ -70,6 +134,9 @@ class Monitoring extends Component
                     'status' => $attendance ? $attendance->status : 'alpha',
                     'check_in' => $attendance ? $attendance->check_in : null,
                     'check_out' => $attendance ? $attendance->check_out : null,
+                    'has_checkin_photo' => $attendance && $attendance->check_in_photo,
+                    'has_checkout_photo' => $attendance && $attendance->check_out_photo,
+                    'has_early_photo' => $attendance && $attendance->early_checkout_photo,
                 ];
             });
         });

@@ -129,33 +129,28 @@
                                 @endif
                             </td>
                             <td class="px-3 sm:px-6 py-4">
-                            @if($data['attendance'] && $data['attendance']->early_checkout_photo)
-    @php
-        $cacheKey = optional(
-            $data['attendance']->updated_at 
-            ?? $data['attendance']->created_at
-        )->timestamp ?? time();
-
-        $photoUrl = route('secure.photo', [
-            'path' => $data['attendance']->early_checkout_photo,
-            'v' => $cacheKey
-        ]);
-    @endphp
-
-    <img
-        src="{{ $photoUrl }}"
-        alt="Bukti surat pulang cepat"
-        title="Klik untuk melihat foto"
-        class="w-14 h-14 object-cover rounded-lg cursor-pointer
-               border border-gray-200 shadow-sm
-               hover:scale-105 hover:shadow-md transition"
-        onclick="viewPhoto('{{ $photoUrl }}', @js($data['student']->name))"
-    >
-@else
-    <span class="text-gray-400 text-xs">Tidak ada</span>
-@endif
-
-
+                                @if($data['attendance'] && $data['attendance']->early_checkout_photo)
+                                    @php
+                                        $photoPath = $data['attendance']->early_checkout_photo;
+                                        
+                                        // Generate secure URL untuk modal (full size)
+                                        $secureUrl = url('/secure-photo/' . $photoPath);
+                                        
+                                        // Thumbnail URL (langsung dari storage public)
+                                        $thumbnailUrl = asset('storage/' . $photoPath);
+                                    @endphp
+                                    
+                                    <img
+                                        src="{{ $thumbnailUrl }}"
+                                        alt="Bukti surat"
+                                        title="Klik untuk melihat foto"
+                                        class="w-16 h-16 object-cover rounded-lg cursor-pointer border-2 border-gray-200 shadow-sm hover:scale-105 hover:border-blue-400 hover:shadow-md transition-all duration-200"
+                                        onclick="viewPhoto('{{ $secureUrl }}', '{{ addslashes($data['student']->name) }}')"
+                                        onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Image%3C/text%3E%3C/svg%3E'"
+                                    >
+                                @else
+                                    <span class="text-gray-400 text-xs">Tidak ada</span>
+                                @endif
                             </td>
                         </tr>
                         
@@ -214,11 +209,12 @@
         </div>
     </div>
 
-<!-- Loading Overlay -->
-<div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
-    <div class="text-center">
-        <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-        <p class="text-gray-800 font-semibold">Memuat data...</p>
+    <!-- Loading Overlay -->
+    <div wire:loading class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+            <p class="text-gray-800 font-semibold">Memuat data...</p>
+        </div>
     </div>
 </div>
 
@@ -233,6 +229,7 @@ function viewPhoto(photoUrl, studentName) {
     // Validasi URL
     if (!photoUrl || photoUrl === '') {
         console.error('URL foto tidak valid');
+        alert('URL foto tidak valid');
         return;
     }
     
