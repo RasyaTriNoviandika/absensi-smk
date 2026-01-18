@@ -32,6 +32,7 @@ use App\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
 */
 Route::get('/', fn() => view('welcome'))->name('home');
 
+
 // Auth Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -44,10 +45,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 // NEW: Secure Photo Route (requires auth + custom middleware)
 Route::get('/secure-photo/{path}', [PhotoController::class, 'show'])
-    ->where('path', '.*')
+    ->where('path', '.*')  // Accept semua karakter termasuk /
     ->middleware(['auth', \App\Http\Middleware\SecurePhotoAccess::class])
     ->name('secure.photo');
-
 /*
 |--------------------------------------------------------------------------
 | Admin Routes - Livewire

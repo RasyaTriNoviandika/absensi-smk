@@ -77,6 +77,15 @@ class QrCodeService
             return null;
         }
 
+        // validasi qr sudah pernah dipakai
+        if (!$user->qr_token_used_at) {
+            Log::warning('QR : Token Sudah pernah dipakai',[
+                'user_id' => $user->id,
+                'used_at' => $user->qr_token_used_at,
+            ]);
+            return null;
+        }
+
         // 4. Ambil attendance hari ini
         $attendance = $user->todayAttendance();
 

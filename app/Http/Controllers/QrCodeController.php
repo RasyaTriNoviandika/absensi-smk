@@ -99,7 +99,9 @@ class QrCodeController extends Controller
         }
 
         // LOCK per user per hari
-        $lock = Cache::lock("qr_scan:{$user->id}:" . today(), 5);
+        $lock = Cache::lock(
+            'qr_scan:{$user->id}:' . now('Asia/Jakarta')->toDateString(),5
+        );
 
         if (!$lock->get()) {
             return response()->json([

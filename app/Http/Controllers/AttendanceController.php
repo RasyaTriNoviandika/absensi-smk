@@ -370,22 +370,33 @@ public function checkIn(Request $request)
             }
             */
 
-            // CEK APAKAH USER SUDAH TERDAFTAR WAJAH
-            if (!$user->face_descriptor) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data wajah belum terdaftar. Silakan daftar wajah terlebih dahulu.'
-                ], 400);
-            }
+           // CEK APAKAH USER SUDAH TERDAFTAR WAJAH
+if (!$user->face_descriptor) {
+    DB::rollBack();
+    return response()->json([
+        'success' => false,
+        'message' => 'Data wajah belum terdaftar. Silakan daftar wajah terlebih dahulu.'
+    ], 400);
+}
 
-            //  VALIDASI WAJAH
-            $storedDescriptor = $user->face_descriptor;
-            if (!is_array($storedDescriptor)) {
-                $storedDescriptor = json_decode($storedDescriptor, true);
-            }
+// ✅ FIX: ambil descriptor dari user
+$storedDescriptor = $user->face_descriptor;
 
-            $threshold = (float) Setting::get('face_match_threshold', 0.6);
+if (!is_array($storedDescriptor)) {
+    $storedDescriptor = json_decode($storedDescriptor, true);
+}
+
+if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
+    DB::rollBack();
+    return response()->json([
+        'success' => false,
+        'message' => 'Data wajah tidak valid. Hubungi admin.'
+    ], 400);
+}
+
+
+
+            $threshold = (float) Setting::get('face_match_threshold', 0.5);
 
             if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
                 DB::rollBack();
@@ -418,21 +429,25 @@ public function checkIn(Request $request)
             $updateData = [
                 'check_out' => $currentTime->toTimeString(),
                 'check_out_photo' => $photoPath,
+                'notes' => 'pulang(' . $currentTime->format('H:i') . ')',
             ];
 
-            //  SIMPAN FOTO BUKTI & ALASAN
-            if ($isEarly && isset($validated['early_reason'])) {
-                $updateData['notes'] = 'Pulang cepat (' . $currentTime->format('H:i') . '): ' . $validated['early_reason'];
-                
-                if (!empty($validated['early_photo'])) {
-                    try {
-                        $earlyPhotoPath = $this->saveBase64ImageSecure($validated['early_photo'], 'early_letter', $user->id);
-                        $updateData['early_checkout_photo'] = $earlyPhotoPath;
-                    } catch (\Exception $e) {
-                        Log::error('Early photo save failed: ' . $e->getMessage());
-                    }
-                }
-            }
+            // SIMPAN ALASAN & FOTO JIKA ADA (TANPA TERGANTUNG JAM)
+           if ($request->filled('early_reason')) {
+    $updateData['notes'] =
+        'Pulang Cepat (' . $currentTime->format('H:i') . '): ' .
+        $request->early_reason;
+
+    if ($request->filled('early_photo')) {
+        $earlyPhotoPath = $this->saveBase64ImageSecure(
+            $request->early_photo,
+            'early_letter',
+            $user->id
+        );
+
+        $updateData['early_checkout_photo'] = $earlyPhotoPath;
+    }
+}
 
             $attendance->update($updateData);
 
@@ -531,14 +546,20 @@ public function checkIn(Request $request)
         
         // Save with secure path
         $date = now()->format('Y-m-d');
-        $imageName = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.jpg';
-        $path = "attendance/user_{$userId}/{$date}/{$imageName}";
-        
-        if (!Storage::disk('local')->put($path, $cleanImage)) {
-            throw new \Exception('Failed to save image to storage');
-        }
-        
-        return $path;
+$imageName = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.jpg';
+
+// ❌ JANGAN SIMPAN attendance/ DI DB
+$relativePath = "user_{$userId}/{$date}/{$imageName}";
+
+// SIMPAN KE storage/app/attendance/...
+Storage::disk('local')->put(
+    "attendance/{$relativePath}",
+    $cleanImage
+);
+
+// DB SIMPAN PATH RELATIF
+return $relativePath;
+
         
     } catch (\Exception $e) {
         Log::error('Image save error: ' . $e->getMessage());

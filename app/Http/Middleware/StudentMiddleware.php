@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -8,12 +9,21 @@ class StudentMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || !auth()->user()->isStudent()) {
-            abort(403, 'Unauthorized access');
+        // 🔐 Belum login
+        if (!auth()->check()) {
+            return redirect()->route('login');
         }
 
+        // ⛔ Bukan student
+        if (!auth()->user()->isStudent()) {
+            abort(403, 'Bukan student');
+        }
+
+        // ⏳ Belum di-approve
         if (!auth()->user()->isApproved()) {
-            return redirect()->route('login')->with('error', 'Akun Anda masih menunggu approval dari admin.');
+            auth()->logout();
+            return redirect()->route('login')
+                ->with('error', 'Akun Anda masih menunggu approval dari admin.');
         }
 
         return $next($request);

@@ -9,56 +9,42 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SecurePhotoAccess
 {
-    /**
-     * Validasi akses foto absensi
-     *
-     * Rules:
-     * - Admin: akses semua foto
-     * - Student: hanya foto milik sendiri
-     * - Guest / role lain: ditolak (403)
-     */
     public function handle(Request $request, Closure $next): Response
-    {
-        $user = auth()->user();
-
-        // 🚨 Middleware RESOURCE: TIDAK BOLEH REDIRECT
-        if (!$user) {
-            abort(403);
-        }
-
-        $path = (string) $request->route('path');
-
-        // ✅ ADMIN: FULL ACCESS
-        if ($user->role === 'admin') {
-            return $next($request);
-        }
-
-        // ✅ STUDENT: HANYA FOTO SENDIRI
-        if ($user->role === 'student') {
-
-            /**
-             * Contoh path:
-             * attendance/user_296/2026-01-13/early_letter_xxx.jpg
-             */
-            if (preg_match('/user_(\d+)\//', $path, $matches)) {
-                $photoUserId = (int) $matches[1];
-
-                if ($photoUserId === (int) $user->id) {
-                    return $next($request);
-                }
-            }
-
-            // ⛔ Akses tidak sah
-            Log::warning('Unauthorized photo access attempt', [
-                'user_id' => $user->id,
-                'path'    => $path,
-                'ip'      => $request->ip(),
-            ]);
-
-            abort(403);
-        }
-
-        // ⛔ Role lain ditolak
-        abort(403);
+{
+    // 🔒 Middleware ini HANYA untuk route yang punya parameter {path}
+    if (!$request->route() || !$request->route()->hasParameter('path')) {
+        return $next($request);
     }
+
+    $user = auth()->user();
+    $path = (string) $request->route('path');
+
+    Log::info('SecurePhotoAccess Middleware', [
+        'authenticated' => $user !== null,
+        'user_id' => $user?->id,
+        'user_role' => $user?->role,
+        'path' => $path,
+        'ip' => $request->ip(),
+    ]);
+
+    if (!$user) {
+        abort(403, 'Unauthorized');
+    }
+
+    if ($user->role === 'admin') {
+        return $next($request);
+    }
+
+    if ($user->role === 'student') {
+        if (preg_match('/user_(\d+)\//', $path, $matches)) {
+            if ((int)$matches[1] === (int)$user->id) {
+                return $next($request);
+            }
+        }
+        abort(403, 'Akses ditolak');
+    }
+
+    abort(403);
+}
+
 }

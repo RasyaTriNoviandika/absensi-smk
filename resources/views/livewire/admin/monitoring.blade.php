@@ -129,29 +129,32 @@
                                 @endif
                             </td>
                             <td class="px-3 sm:px-6 py-4">
-                                @if($data['attendance'] && $data['attendance']->early_checkout_photo)
-                                    @php
-                                        $photoPath = $data['attendance']->early_checkout_photo;
-                                        
-                                        // Generate secure URL untuk modal (full size)
-                                        $secureUrl = url('/secure-photo/' . $photoPath);
-                                        
-                                        // Thumbnail URL (langsung dari storage public)
-                                        $thumbnailUrl = asset('storage/' . $photoPath);
-                                    @endphp
-                                    
-                                    <img
-                                        src="{{ $thumbnailUrl }}"
-                                        alt="Bukti surat"
-                                        title="Klik untuk melihat foto"
-                                        class="w-16 h-16 object-cover rounded-lg cursor-pointer border-2 border-gray-200 shadow-sm hover:scale-105 hover:border-blue-400 hover:shadow-md transition-all duration-200"
-                                        onclick="viewPhoto('{{ $secureUrl }}', '{{ addslashes($data['student']->name) }}')"
-                                        onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Image%3C/text%3E%3C/svg%3E'"
-                                    >
-                                @else
-                                    <span class="text-gray-400 text-xs">Tidak ada</span>
-                                @endif
-                            </td>
+@if($data['attendance'] && $data['attendance']->early_checkout_photo)
+
+@php
+    $photoPath = $data['attendance']->early_checkout_photo;
+
+    $secureUrl = route('secure.photo', [
+        'path' => ($photoPath)
+    ]);
+@endphp
+
+<img
+    src="{{ $secureUrl }}"
+    alt="Bukti surat"
+    class="w-16 h-16 object-cover rounded-lg cursor-pointer
+           border-2 border-gray-200 shadow-sm
+           hover:scale-105 hover:border-blue-400 hover:shadow-md
+           transition-all duration-200"
+    onclick="viewPhoto('{{ $secureUrl }}', '{{ addslashes($data['student']->name) }}')"
+/>
+
+
+@else
+<span class="text-gray-400 text-xs">Tidak ada</span>
+@endif
+</td>
+
                         </tr>
                         
                         @if($data['attendance'] && $data['attendance']->notes)
@@ -220,12 +223,8 @@
 
 @push('scripts')
 <script>
+// ✅ Check session sebelum buka modal
 function viewPhoto(photoUrl, studentName) {
-    const modal = document.getElementById('photoModal');
-    const img = document.getElementById('modalPhoto');
-    const nameEl = document.getElementById('studentName');
-    const downloadLink = document.getElementById('downloadPhoto');
-    
     // Validasi URL
     if (!photoUrl || photoUrl === '') {
         console.error('URL foto tidak valid');
@@ -233,15 +232,58 @@ function viewPhoto(photoUrl, studentName) {
         return;
     }
     
-    // Set image dan info
-    img.src = photoUrl;
-    nameEl.textContent = studentName || 'Tidak diketahui';
-    downloadLink.href = photoUrl;
+    console.log('Opening photo:', photoUrl);
+    
+    const modal = document.getElementById('photoModal');
+    const img = document.getElementById('modalPhoto');
+    const nameEl = document.getElementById('studentName');
+    const downloadLink = document.getElementById('downloadPhoto');
+    
+    // Set placeholder loading
+    img.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23666%22%3ELoading...%3C/text%3E%3C/svg%3E';
     
     // Show modal
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     document.body.style.overflow = 'hidden';
+    
+    // ✅ Load image dengan error handling
+    const tempImg = new Image();
+    
+    tempImg.onload = function() {
+        console.log('Image loaded successfully');
+        img.src = photoUrl;
+        nameEl.textContent = studentName || 'Tidak diketahui';
+        downloadLink.href = photoUrl;
+    };
+    
+    tempImg.onerror = function() {
+        console.error('Failed to load image:', photoUrl);
+        
+        // Check if it's authentication error (403)
+        fetch(photoUrl, { 
+            method: 'HEAD',
+            credentials: 'same-origin'  // ← Penting untuk kirim cookie session
+        })
+        .then(response => {
+            if (response.status === 403) {
+                alert('⚠️ Session Anda telah berakhir. Silakan refresh halaman dan login kembali.');
+                window.location.reload();
+            } else if (response.status === 404) {
+                alert('❌ Foto tidak ditemukan');
+            } else {
+                alert('❌ Gagal memuat foto. Status: ' + response.status);
+            }
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            alert('❌ Gagal memuat foto. Periksa koneksi internet Anda.');
+        });
+        
+        closePhotoModal();
+    };
+    
+    tempImg.src = photoUrl;
 }
 
 function closePhotoModal() {

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -8,8 +9,14 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            abort(403, 'Unauthorized access');
+        // 🔐 Belum login → ke login
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+
+        // ⛔ Sudah login tapi bukan admin
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Bukan admin');
         }
 
         return $next($request);
