@@ -56,4 +56,10 @@ class Kernel extends HttpKernel
         'secure.photo' => \App\Http\Middleware\SecurePhotoAccess::class,
         'throttle.strict' => \Illuminate\Routing\Middleware\ThrottleRequests::class . ':10,1',
     ];
+
+    protected function schedule(Schedule $schedule)
+{
+    // Run at 23:59 every day
+    $schedule->command('attendance:mark-alpha')->dailyAt('23:59');
+}
 }

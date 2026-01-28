@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Services\GpsValidationService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 
 class AttendanceController extends Controller
 {
@@ -51,12 +52,12 @@ public function checkIn(Request $request)
         ], 429);
     }
 
-    $key = 'checkin:' . $user->id;
+    $checkinKey  = "attendance:checkin:{$user->id}:" . today();
 
     try {
         // RATE LIMIT
-        if (RateLimiter::tooManyAttempts($key, 3)) {
-            $seconds = RateLimiter::availableIn($key);
+        if (RateLimiter::tooManyAttempts($checkinKey, 3)) {
+            $seconds = RateLimiter::availableIn($checkinKey);
             return response()->json([
                 'success' => false,
                 'message' => "Terlalu banyak percobaan absen. Tunggu {$seconds} detik lagi."
@@ -80,13 +81,38 @@ public function checkIn(Request $request)
         }
 
         $validated = $request->validate([
-            'face_descriptor' => 'required|array|size:128',
+            'face_descriptor' => 'required|string',
             'photo' => 'required|string',
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
         ]);
 
-        // ✅ FIXED: Set default distance untuk testing
+
+            try {
+                $clientDescriptor = $this->decryptFaceDescriptor(
+                $validated['face_descriptor'],
+                $request,
+                $user
+            );
+
+
+        if (!is_array($clientDescriptor) || count($clientDescriptor) !== 128) {
+            throw new \Exception('Invalid face descriptor format');
+        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::warning('Face descriptor decrypt failed', [
+            'user_id' => $user->id,
+            'ip' => $request->ip()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Data wajah tidak valid atau rusak.'
+        ], 400);
+    }
+
+        //  FIXED: Set default distance untuk testing
         $distance = 0;
 
         // GPS VALIDATION - NONAKTIFKAN UNTUK TESTING
@@ -114,7 +140,7 @@ public function checkIn(Request $request)
         }
         */
 
-        // ✅ FIXED: Cek face descriptor dengan pesan yang jelas
+        //  FIXED: Cek face descriptor dengan pesan yang jelas
         if (!$user->face_descriptor) {
             DB::rollBack();
             
@@ -129,7 +155,7 @@ public function checkIn(Request $request)
             ], 400);
         }
 
-        // ✅ FIXED: FACE MATCH dengan error handling lengkap
+        // FIXED: FACE MATCH dengan error handling lengkap
         try {
             $storedDescriptor = is_array($user->face_descriptor)
                 ? $user->face_descriptor
@@ -142,11 +168,11 @@ public function checkIn(Request $request)
             $threshold = (float) Setting::get('face_match_threshold', 0.5);
 
             if (!FaceRecognitionService::isMatch(
-                $validated['face_descriptor'],
+                $clientDescriptor,
                 $storedDescriptor,
                 $threshold
             )) {
-                RateLimiter::hit($key, 60);
+                RateLimiter::hit($checkinKey, 60);
                 DB::rollBack();
 
                 Log::warning('Face mismatch on check-in', [
@@ -172,7 +198,7 @@ public function checkIn(Request $request)
             ], 500);
         }
 
-        // ✅ FIXED: Save photo dengan error handling
+        //  FIXED: Save photo dengan error handling
         try {
             $photoPath = $this->saveBase64ImageSecure(
                 $validated['photo'],
@@ -216,7 +242,7 @@ public function checkIn(Request $request)
         );
 
         DB::commit();
-        RateLimiter::clear($key);
+        RateLimiter::clear($checkinKey);
 
         $user->update([
             'qr_token_used_at' => now(),
@@ -271,19 +297,28 @@ public function checkIn(Request $request)
     }
 }
 
-   
-    public function checkOut(Request $request)
-    {
-        $key = 'checkout:' . auth()->id();
-        if (RateLimiter::tooManyAttempts($key, 3)) {
-            $seconds = RateLimiter::availableIn($key);
-            return response()->json([
-                'success' => false,
-                'message' => "Terlalu banyak percobaan. Coba lagi dalam {$seconds} detik."
-            ], 429);
-        }
+   public function checkOut(Request $request)
+{
+    $user = auth()->user();
 
-        DB::beginTransaction();
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Anda belum login.'
+        ], 401);
+    }
+
+    $checkoutKey = "attendance:checkout:{$user->id}:" . now('Asia/Jakarta')->toDateString();
+
+    if (RateLimiter::tooManyAttempts($checkoutKey, 3)) {
+        $seconds = RateLimiter::availableIn($checkoutKey);
+        return response()->json([
+            'success' => false,
+            'message' => "Terlalu banyak percobaan. Coba lagi dalam {$seconds} detik."
+        ], 429);
+    }
+
+    DB::beginTransaction();
 
         try {
             $user = auth()->user();
@@ -339,7 +374,7 @@ public function checkIn(Request $request)
             }
 
             $validated = $request->validate([
-                'face_descriptor' => 'required|array|size:128',
+                'face_descriptor' => 'required|string',
                 'photo' => 'required|string',
                 'latitude' => 'required|numeric|between:-90,90',
                 'longitude' => 'required|numeric|between:-180,180',
@@ -347,7 +382,30 @@ public function checkIn(Request $request)
                 'early_photo' => $isEarly ? 'required|string' : 'nullable|string',
             ]);
 
-            // ✅ FIXED: GPS validation dengan default value
+            try {
+    $clientDescriptor = $this->decryptFaceDescriptor(
+    $validated['face_descriptor'],
+    $request,
+    $user
+);
+
+    if (!is_array($clientDescriptor) || count($clientDescriptor) !== 128) {
+        throw new \Exception('Invalid face descriptor format');
+    }
+} catch (\Exception $e) {
+    DB::rollBack();
+    Log::warning('Face descriptor decrypt failed', [
+        'user_id' => $user->id,
+        'ip' => $request->ip()
+    ]);
+
+    return response()->json([
+        'success' => false,
+        'message' => 'Data wajah tidak valid atau rusak.'
+    ], 400);
+}
+
+            //  FIXED: GPS validation dengan default value
             $distance = 0;
             
             // GPS VALIDATION - NONAKTIFKAN UNTUK TESTING
@@ -379,7 +437,7 @@ if (!$user->face_descriptor) {
     ], 400);
 }
 
-// ✅ FIX: ambil descriptor dari user
+//  FIX: ambil descriptor dari user
 $storedDescriptor = $user->face_descriptor;
 
 if (!is_array($storedDescriptor)) {
@@ -398,9 +456,13 @@ if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
 
             $threshold = (float) Setting::get('face_match_threshold', 0.5);
 
-            if (!FaceRecognitionService::isMatch($validated['face_descriptor'], $storedDescriptor, $threshold)) {
+            if (!FaceRecognitionService::isMatch(
+                    $clientDescriptor,
+                    $storedDescriptor,
+                    $threshold
+                )) {
                 DB::rollBack();
-                RateLimiter::hit($key, 60);
+                RateLimiter::hit($checkoutKey, 60);
 
                 Log::channel('security')->warning('Face recognition failed', [
                 'user_id' => $user->id,
@@ -463,7 +525,7 @@ if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
                 'is_early' => $isEarly
             ]);
 
-            RateLimiter::clear($key);
+            RateLimiter::clear($checkoutKey);
 
             $message = $isEarly 
                 ? 'Absen pulang berhasil. Alasan dan bukti surat telah tercatat.'
@@ -585,4 +647,28 @@ return $relativePath;
         
         return view('student.history', compact('attendances'));
     }
+    private function decryptFaceDescriptor(string $encrypted, Request $request, $user): array
+{
+    try {
+        $descriptor = json_decode(
+            Crypt::decryptString($encrypted),
+            true
+        );
+
+        if (!is_array($descriptor) || count($descriptor) !== 128) {
+            throw new \Exception('Invalid face descriptor');
+        }
+
+        return $descriptor;
+    } catch (\Exception $e) {
+        Log::warning('Face descriptor decrypt failed', [
+            'user_id' => $user->id,
+            'ip' => $request->ip()
+        ]);
+
+        throw new \Exception('Data wajah tidak valid atau rusak.');
+    }
+}
+
+
 }

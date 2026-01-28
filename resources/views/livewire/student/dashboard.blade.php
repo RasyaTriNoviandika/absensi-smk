@@ -434,13 +434,29 @@ function removeEarlyPhoto() {
     document.getElementById('photoButtonText').textContent = 'Ambil/Upload Foto Surat';
 }
 
-//  FIXED: Simplified - hanya get GPS, tidak validate di frontend
+// check lokasi user saat absen harus berada di dalam radius
 async function checkLocation() {
     return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject('Browser tidak support GPS');
-            return;
-        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                userLat = position.coords.latitude;
+                userLng = position.coords.longitude;
+                
+                //  Kirim ke backend untuk validasi
+                fetch('/api/validate-location', {
+                    method: 'POST',
+                    body: JSON.stringify({ lat: userLat, lng: userLng })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.valid) resolve(true);
+                    else reject(data.message);
+                });
+            },
+            (error) => reject('GPS Error | Pastikan Sudah Aktifkan Lokasi')
+        );
+    });
+}
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -785,6 +801,26 @@ function calculateDescriptorVariance(frames) {
         sumDiff += Math.sqrt(diff);
     }
     return sumDiff / (frames.length - 1);
+
+    // menggunakan web crypto API untuk enkripsi descriptor wajah
+async function encryptDescriptor(descriptor) {
+    const key = await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt"]
+    );
+    
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(JSON.stringify(descriptor));
+    
+    const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        encoded
+    );
+    
+    return { encrypted: btoa(String.fromCharCode(...new Uint8Array(encrypted))), iv: btoa(String.fromCharCode(...iv)) };
+}
 }
 </script>
 @endpush
