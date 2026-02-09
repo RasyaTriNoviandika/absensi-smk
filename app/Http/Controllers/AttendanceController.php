@@ -113,11 +113,11 @@ public function checkIn(Request $request)
     }
 
         //  FIXED: Set default distance untuk testing
-        $distance = 0;
+        // $distance = 0;
 
         // GPS VALIDATION - NONAKTIFKAN UNTUK TESTING
         // Uncomment kode dibawah untuk aktifkan GPS validation
-        /*
+        
         try {
             $distance = GpsValidationService::validate(
                 $validated['latitude'],
@@ -126,7 +126,7 @@ public function checkIn(Request $request)
             );
         } catch (\Exception $e) {
             DB::rollBack();
-            RateLimiter::hit($key, 60);
+            RateLimiter::hit($checkinKey, 60);
             
             Log::warning('GPS: Outside radius', [
                 'user_id' => $user->id,
@@ -138,7 +138,7 @@ public function checkIn(Request $request)
                 'message' => $e->getMessage()
             ], 400);
         }
-        */
+        
 
         //  FIXED: Cek face descriptor dengan pesan yang jelas
         if (!$user->face_descriptor) {
@@ -452,8 +452,6 @@ if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
     ], 400);
 }
 
-
-
             $threshold = (float) Setting::get('face_match_threshold', 0.5);
 
             if (!FaceRecognitionService::isMatch(
@@ -487,18 +485,15 @@ if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
                     'message' => 'Gagal menyimpan foto. Coba lagi.'
                 ], 500);
             }
-
             $updateData = [
-                'check_out' => $currentTime->toTimeString(),
-                'check_out_photo' => $photoPath,
-                'notes' => 'pulang(' . $currentTime->format('H:i') . ')',
-            ];
+    'check_out' => $currentTime->toTimeString(),
+    'check_out_photo' => $photoPath,
+    'check_out_method' => 'face',
+];
 
-            // SIMPAN ALASAN & FOTO JIKA ADA (TANPA TERGANTUNG JAM)
-           if ($request->filled('early_reason')) {
-    $updateData['notes'] =
-        'Pulang Cepat (' . $currentTime->format('H:i') . '): ' .
-        $request->early_reason;
+if ($isEarly) {
+    $updateData['early_checkout'] = true;
+    $updateData['notes'] = 'Pulang cepat (' . $currentTime->format('H:i') . '): ' . $request->early_reason;
 
     if ($request->filled('early_photo')) {
         $earlyPhotoPath = $this->saveBase64ImageSecure(
@@ -506,9 +501,11 @@ if (!is_array($storedDescriptor) || count($storedDescriptor) !== 128) {
             'early_letter',
             $user->id
         );
-
         $updateData['early_checkout_photo'] = $earlyPhotoPath;
     }
+} else {
+    $updateData['early_checkout'] = false;
+    $updateData['notes'] = 'Pulang normal (' . $currentTime->format('H:i') . ')';
 }
 
             $attendance->update($updateData);
@@ -647,13 +644,10 @@ return $relativePath;
         
         return view('student.history', compact('attendances'));
     }
-    private function decryptFaceDescriptor(string $encrypted, Request $request, $user): array
+    private function decryptFaceDescriptor(string $rawDescriptor, Request $request, $user): array
 {
     try {
-        $descriptor = json_decode(
-            Crypt::decryptString($encrypted),
-            true
-        );
+        $descriptor = json_decode($rawDescriptor, true);
 
         if (!is_array($descriptor) || count($descriptor) !== 128) {
             throw new \Exception('Invalid face descriptor');
@@ -661,9 +655,10 @@ return $relativePath;
 
         return $descriptor;
     } catch (\Exception $e) {
-        Log::warning('Face descriptor decrypt failed', [
+        Log::warning('Face descriptor decode failed', [
             'user_id' => $user->id,
-            'ip' => $request->ip()
+            'ip' => $request->ip(),
+            'error' => $e->getMessage()
         ]);
 
         throw new \Exception('Data wajah tidak valid atau rusak.');

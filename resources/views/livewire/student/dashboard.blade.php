@@ -88,7 +88,7 @@
                                     </span>
                                 @endif
                             </div>
-                        </div>
+                        /div>
                     </div>
                 @else
                     <button onclick="openCheckInModal()" 
@@ -442,27 +442,6 @@ async function checkLocation() {
                 userLat = position.coords.latitude;
                 userLng = position.coords.longitude;
                 
-                //  Kirim ke backend untuk validasi
-                fetch('/api/validate-location', {
-                    method: 'POST',
-                    body: JSON.stringify({ lat: userLat, lng: userLng })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.valid) resolve(true);
-                    else reject(data.message);
-                });
-            },
-            (error) => reject('GPS Error | Pastikan Sudah Aktifkan Lokasi')
-        );
-    });
-}
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userLat = position.coords.latitude;
-                userLng = position.coords.longitude;
-                
                 //  Tidak ada validation distance di sini
                 // Backend yang akan validate
                 resolve(true);
@@ -653,7 +632,7 @@ async function captureAndSubmit() {
         const url = currentType === 'checkin' ? CHECKIN_URL : CHECKOUT_URL;
 
         const requestData = {
-            face_descriptor: faceDescriptor,
+            face_descriptor: JSON.stringify(Array.from(faceDescriptor)),
             photo: photo,
             latitude: userLat,
             longitude: userLng
@@ -791,7 +770,6 @@ async function captureMultipleFrames() {
 }
 
 function calculateDescriptorVariance(frames) {
-    // Simple variance check
     let sumDiff = 0;
     for (let i = 0; i < frames.length - 1; i++) {
         let diff = 0;
@@ -801,8 +779,9 @@ function calculateDescriptorVariance(frames) {
         sumDiff += Math.sqrt(diff);
     }
     return sumDiff / (frames.length - 1);
+}
 
-    // menggunakan web crypto API untuk enkripsi descriptor wajah
+// menggunakan web crypto API untuk enkripsi descriptor wajah
 async function encryptDescriptor(descriptor) {
     const key = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
@@ -819,8 +798,10 @@ async function encryptDescriptor(descriptor) {
         encoded
     );
     
-    return { encrypted: btoa(String.fromCharCode(...new Uint8Array(encrypted))), iv: btoa(String.fromCharCode(...iv)) };
-}
+    return {
+        encrypted: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+        iv: btoa(String.fromCharCode(...iv))
+    };
 }
 </script>
 @endpush

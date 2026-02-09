@@ -3,33 +3,41 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Models\User;
+use App\Models\Attendance;
 
 class MarkAlphaStudents extends Command
 {
     protected $signature = 'attendance:mark-alpha';
+    protected $description = 'Menandai siswa yang tidak absen sebagai alpha';
 
     public function handle()
     {
         $today = now('Asia/Jakarta')->toDateString();
 
-        // Ambil semua siswa approved
         $students = User::students()->approved()->pluck('id');
 
-        // Ambil user_id yang SUDAH absen hari ini
-        $alreadyPresent = Attendance::whereDate('date', $today)
-            ->whereNotNull('check_in')
-            ->pluck('user_id');
+        foreach ($students as $userId) {
 
-        // Siswa yang BELUM absen
-        $alphaStudents = $students->diff($alreadyPresent);
+            $attendance = Attendance::where('user_id', $userId)
+                ->whereDate('date', $today)
+                ->first();
 
-        foreach ($alphaStudents as $userId) {
-            Attendance::updateOrCreate(
-                ['user_id' => $userId, 'date' => $today],
-                ['status' => 'alpha']
-            );
+            // SUDAH ADA BUKTI HADIR (masuk ATAU pulang) → JANGAN alpha
+            if ($attendance && ($attendance->check_in || $attendance->check_out)) {
+                continue;
+            }
+
+            //  Belum ada record sama sekali → buat alpha
+            if (!$attendance) {
+                Attendance::create([
+                    'user_id' => $userId,
+                    'date' => $today,
+                    'status' => 'alpha'
+                ]);
+            }
         }
 
-        $this->info('Alpha students marked successfully.');
+        $this->info('Alpha students marked safely.');
     }
 }

@@ -5,26 +5,33 @@ namespace App\Services;
 use App\Models\User;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class QrCodeService
 {
     /**
-     * Generate QR Token untuk user
+     * Generate QR Token untuk user (berlaku 1 hari)
      */
     public static function generateToken(User $user): string
     {
-        $token = hash_hmac('sha256', 
-            $user->id . '|' . $user->nisn . '|' . now()->timestamp,
+        $today = now('Asia/Jakarta')->toDateString();
+
+        $token = hash_hmac(
+            'sha256',
+            $user->id . '|' . $user->nisn . '|' . $today,
             config('app.key')
         );
-        
+
         $user->update([
             'qr_token' => $token,
-            'qr_generated_at' => now(),
-            'qr_token_used_at' => null, // reset setiap generate
+            'qr_generated_at' => now('Asia/Jakarta'),
+            'qr_token_used_at' => null,
         ]);
         
-        Log::info('QR Token generated', ['user_id' => $user->id]);
+        Log::info('QR Token generated', [
+            'user_id' => $user->id,
+            'token_preview' => substr($token, 0, 10) . '...'
+        ]);
         
         return $token;
     }
@@ -36,110 +43,77 @@ class QrCodeService
     {
         $token = $user->qr_token ?? self::generateToken($user);
 
+        // Format payload: ABSEN|{token}
         $payload = 'ABSEN|' . $token;
 
         $qrCode = QrCode::format('png')
             ->size(350)
-            ->errorCorrection('L') 
-            ->margin(3)
+            ->errorCorrection('M')  // Medium error correction
+            ->margin(2)
             ->generate($payload);
 
         return 'data:image/png;base64,' . base64_encode($qrCode);
     }
     
     /**
-     * Validate QR Code dengan kontrol berbasis attendance harian
+     * Validate QR Code (return user atau error)
      */
-    public static function validateQrCode(string $qrData, string $type): ?User
+    public static function validateQrCode(string $qrData): array
     {
-        // 1. Validasi format QR
+        // Cek format
         if (!str_starts_with($qrData, 'ABSEN|')) {
-            Log::warning('QR: Format invalid', ['data' => substr($qrData, 0, 20)]);
-            return null;
+            Log::warning('QR: Format invalid', ['data' => substr($qrData, 0, 30)]);
+            return ['error' => 'FORMAT_INVALID'];
         }
 
+        // Extract token
         $token = str_replace('ABSEN|', '', $qrData);
-
-        // 2. Cari user berdasarkan token
+        
+        // Cari user berdasarkan token
         $user = User::where('qr_token', $token)->first();
 
         if (!$user) {
-            Log::warning('QR: Token tidak ditemukan', ['token' => substr($token, 0, 10)]);
-            return null;
-        }
-
-        // 3. Validasi expiry (5 menit)
-        if (!$user->qr_generated_at || $user->qr_generated_at->addMinutes(5)->isPast()) {
-            Log::warning('QR: Token expired', [
-                'user_id' => $user->id,
-                'generated_at' => $user->qr_generated_at,
+            Log::warning('QR: Token tidak ditemukan di database', [
+                'token_preview' => substr($token, 0, 15) . '...'
             ]);
-            return null;
+            return ['error' => 'TOKEN_NOT_FOUND'];
         }
 
-        // validasi qr sudah pernah dipakai
-        if (!$user->qr_token_used_at) {
-            Log::warning('QR : Token Sudah pernah dipakai',[
+        // Token hanya berlaku untuk hari yang sama dengan tanggal generate
+        $today = now('Asia/Jakarta')->toDateString();
+        $generatedDate = $user->qr_generated_at 
+            ? $user->qr_generated_at->toDateString() 
+            : null;
+
+        if (!$generatedDate || $generatedDate !== $today) {
+            Log::warning('QR: Token expired atau bukan hari ini', [
                 'user_id' => $user->id,
-                'used_at' => $user->qr_token_used_at,
+                'generated_date' => $generatedDate,
+                'today' => $today
             ]);
-            return null;
+            return ['error' => 'TOKEN_EXPIRED'];
         }
 
-        // 4. Ambil attendance hari ini
-        $attendance = $user->todayAttendance();
+        Log::info('QR: Token valid', [
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'nisn' => $user->nisn
+        ]);
 
-        // 5. VALIDASI BERDASARKAN TYPE
-        if ($type === 'checkin') {
-            //  CHECK-IN: Belum boleh ada check_in
-            if ($attendance && $attendance->check_in) {
-                Log::warning('QR: Sudah check-in hari ini', [
-                    'user_id' => $user->id,
-                    'check_in' => $attendance->check_in,
-                ]);
-                return null;
-            }
-            
-            // Boleh check-in
-            Log::info('QR: Check-in valid', ['user_id' => $user->id]);
-            return $user;
-        }
-
-        if ($type === 'checkout') {
-            //  CHECK-OUT: Harus sudah check-in dulu
-            if (!$attendance || !$attendance->check_in) {
-                Log::warning('QR: Belum check-in', ['user_id' => $user->id]);
-                return null;
-            }
-
-            //  boleh check-out
-            if ($attendance->check_out) {
-                Log::warning('QR: Sudah check-out hari ini', [
-                    'user_id' => $user->id,
-                    'check_out' => $attendance->check_out,
-                ]);
-                return null;
-            }
-            
-            //  Boleh check-out
-            Log::info('QR: Check-out valid', ['user_id' => $user->id]);
-            return $user;
-        }
-
-        return null;
+        return ['user' => $user];
     }
-    
+
     /**
-     * Regenerate QR Token (if compromised)
+     * Regenerate QR Token (dipanggil manual oleh user)
      */
     public static function regenerateToken(User $user): string
     {
-        Log::info('QR Token regenerated', ['user_id' => $user->id]);
+        Log::info('QR Token regenerated by user', ['user_id' => $user->id]);
         return self::generateToken($user);
     }
     
     /**
-     * Get last QR usage
+     * Get informasi penggunaan QR terakhir
      */
     public static function getLastUsage(User $user): ?array
     {
@@ -148,7 +122,7 @@ class QrCodeService
                 $q->where('check_in_method', 'qr_backup')
                   ->orWhere('check_out_method', 'qr_backup');
             })
-            ->latest()
+            ->latest('date')
             ->first();
         
         if (!$lastAttendance) {
@@ -159,8 +133,8 @@ class QrCodeService
             'date' => $lastAttendance->date,
             'type' => $lastAttendance->check_in_method === 'qr_backup' ? 'Check-In' : 'Check-Out',
             'time' => $lastAttendance->check_in_method === 'qr_backup' 
-                ? $lastAttendance->check_in 
-                : $lastAttendance->check_out
+                ? $lastAttendance->check_in->format('H:i:s')
+                : $lastAttendance->check_out->format('H:i:s')
         ];
     }
 }

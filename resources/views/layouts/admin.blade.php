@@ -11,7 +11,25 @@
     
     @livewireStyles
     @stack('styles')
+    
 </head>
+<style>
+#reader {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    background: black;
+}
+
+#reader video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    transform: scaleX(1); /* tidak mirror */
+}
+</style>
 <body class="bg-gray-50">
 
      <!-- Global loading screen -->

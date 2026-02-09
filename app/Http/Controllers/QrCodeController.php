@@ -17,10 +17,10 @@ class QrCodeController extends Controller
         $user = auth()->user();
         
         // Generate QR jika belum ada
-        if (
+       if (
             !$user->qr_token ||
             !$user->qr_generated_at ||
-            $user->qr_generated_at->copy()->addDays(30)->isPast()
+            $user->qr_generated_at->toDateString() !== now('Asia/Jakarta')->toDateString()
         ) {
             QrCodeService::generateToken($user);
         }
@@ -86,21 +86,27 @@ class QrCodeController extends Controller
 
     return DB::transaction(function () use ($validated, $request) {
 
-        $user = QrCodeService::validateQrCode(
-            $validated['qr_data'],
-            $validated['type']
-        );
+        // ================= VALIDASI QR SAJA =================
+        $result = QrCodeService::validateQrCode($validated['qr_data']);
 
-        if (!$user) {
+        if (isset($result['error'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'QR tidak valid atau sudah digunakan'
+                'message' => match($result['error']) {
+                    'FORMAT_INVALID' => 'Format QR tidak dikenali',
+                    'TOKEN_NOT_FOUND' => 'QR tidak terdaftar',
+                    'TOKEN_EXPIRED' => 'QR sudah kadaluarsa, minta siswa generate ulang',
+                    default => 'QR tidak valid'
+                }
             ], 400);
         }
 
-        // LOCK per user per hari
+        $user = $result['user'];
+
+        // ================= LOCK ANTI DOUBLE SCAN =================
         $lock = Cache::lock(
-            'qr_scan:{$user->id}:' . now('Asia/Jakarta')->toDateString(),5
+            'qr_scan:' . $user->id . ':' . now('Asia/Jakarta')->toDateString(),
+            5
         );
 
         if (!$lock->get()) {
@@ -112,10 +118,11 @@ class QrCodeController extends Controller
 
         try {
             $attendance = $user->todayAttendance();
+            $now = now('Asia/Jakarta');
 
-            // ==============================
-            // CHECK-IN
-            // ==============================
+            // =====================================================
+            // ======================= CHECK-IN =====================
+            // =====================================================
             if ($validated['type'] === 'checkin') {
 
                 if ($attendance && $attendance->check_in) {
@@ -125,7 +132,6 @@ class QrCodeController extends Controller
                     ], 400);
                 }
 
-                $now = now('Asia/Jakarta');
                 $limitTime = \App\Models\Setting::get('check_in_time_limit', '07:30');
                 $limitDateTime = today('Asia/Jakarta')->setTimeFromTimeString($limitTime);
                 $status = $now->lessThanOrEqualTo($limitDateTime) ? 'hadir' : 'terlambat';
@@ -144,11 +150,6 @@ class QrCodeController extends Controller
                     ]
                 );
 
-                //  tandai QR sudah dipakai
-                $user->update([
-                    'qr_token_used_at' => now()
-                ]);
-
                 return response()->json([
                     'success' => true,
                     'message' => $user->name . ' berhasil absen masuk',
@@ -162,13 +163,13 @@ class QrCodeController extends Controller
                 ]);
             }
 
-            // ==============================
-            // CHECK-OUT
-            // ==============================
+            // =====================================================
+            // ====================== CHECK-OUT =====================
+            // =====================================================
             if (!$attendance || !$attendance->check_in) {
                 return response()->json([
                     'success' => false,
-                    'message' => $user->name . ' belum absen masuk'
+                    'message' => 'Belum ada absen masuk hari ini'
                 ], 400);
             }
 
@@ -182,7 +183,7 @@ class QrCodeController extends Controller
             $minCheckoutTime = \App\Models\Setting::get('check_out_time_min', '16:00');
             $minTime = today('Asia/Jakarta')->setTimeFromTimeString($minCheckoutTime);
 
-            if (now('Asia/Jakarta')->lessThan($minTime)) {
+            if ($now->lessThan($minTime)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Belum waktunya absen pulang'
@@ -190,11 +191,10 @@ class QrCodeController extends Controller
             }
 
             $attendance->update([
-                'check_out' => now('Asia/Jakarta'),
+                'check_out' => $now,
                 'check_out_method' => 'qr_backup',
             ]);
 
-            //  tandai QR sudah dipakai
             $user->update([
                 'qr_token_used_at' => now()
             ]);
@@ -202,7 +202,8 @@ class QrCodeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $user->name . ' berhasil absen pulang',
-                'time' => now('Asia/Jakarta')->format('H:i'),
+                'status'=>'pulang',
+                'time' => $now->format('H:i'),
                 'student' => [
                     'name' => $user->name,
                     'nisn' => $user->nisn,

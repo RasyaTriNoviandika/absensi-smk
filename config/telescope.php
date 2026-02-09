@@ -138,11 +138,11 @@ return [
 
     Watchers\ExceptionWatcher::class => true,
 
-    Watchers\RequestWatcher::class => false,
-    Watchers\QueryWatcher::class => false,
-    Watchers\CommandWatcher::class => false,
-    Watchers\DumpWatcher::class => false,
-    Watchers\ClientRequestWatcher::class => false,
+    Watchers\RequestWatcher::class => true,
+    Watchers\QueryWatcher::class => true,
+    Watchers\CommandWatcher::class => true,
+    Watchers\DumpWatcher::class => true,
+    Watchers\ClientRequestWatcher::class => true,
 
 ],
 

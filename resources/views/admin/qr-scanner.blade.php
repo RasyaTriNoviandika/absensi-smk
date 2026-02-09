@@ -11,7 +11,7 @@
         <p class="text-gray-600">Scan QR Code siswa - Pilih mode Camera atau Upload</p>
     </div>
 
-    <!--  MODE SELECTOR -->
+    <!-- MODE SELECTOR -->
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
             <button onclick="switchMode('camera')" id="btnModeCamera"
@@ -32,11 +32,35 @@
                 <i class="fas fa-camera text-blue-600 mr-2"></i>Scanner
             </h3>
 
-            <!--  MODE 1: CAMERA SCAN -->
+            <!-- MODE 1: CAMERA SCAN -->
             <div id="cameraMode">
+                {{-- <button onclick="enableSound()" 
+                style="background:#16a34a;color:white;padding:10px 16px;border-radius:8px;margin-bottom:10px">
+                🔊 Aktifkan Suara Scanner
+            </button> --}}
+
                 <div class="bg-gray-900 rounded-lg overflow-hidden mb-4 relative" style="height: 400px;">
-                    <video id="qrVideo" autoplay playsinline class="w-full h-full object-cover"></video>
-                    <div id="scanIndicator" class="absolute inset-0 border-4 border-transparent pointer-events-none"></div>
+                    <!-- Camera Video (Non-mirrored) -->
+                    <video id="qrVideo" autoplay playsinline 
+                        class="w-full h-full object-cover">
+                    </video>
+                    
+                    <!-- Scan Frame Guide -->
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-64 h-64 border-4 border-blue-400 rounded-lg relative">
+                            <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-400"></div>
+                            <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-400"></div>
+                            <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-400"></div>
+                            <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-400"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <p class="text-white text-sm font-semibold bg-black bg-opacity-50 px-3 py-1 rounded">
+                                    Arahkan QR ke area ini
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="scanIndicator" class="absolute inset-0 border-4 border-transparent pointer-events-none transition-all duration-300"></div>
                     
                     <div id="loading" class="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                         <div class="text-center text-white">
@@ -55,10 +79,23 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Error State -->
+                    <div id="errorState" class="absolute inset-0 bg-black bg-opacity-75 hidden items-center justify-center">
+                        <div class="text-center text-white px-4">
+                            <i class="fas fa-exclamation-triangle text-5xl mb-3 text-yellow-500"></i>
+                            <p class="font-semibold text-lg mb-2">Camera Error</p>
+                            <p id="errorMessage" class="text-sm mb-4">Gagal mengakses kamera</p>
+                            <button onclick="retryCamera()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold">
+                                <i class="fas fa-redo mr-2"></i>Coba Lagi
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!--  MODE 2: UPLOAD IMAGE -->
+            <!-- MODE 2: UPLOAD IMAGE -->
             <div id="uploadMode" class="hidden">
                 <div class="border-4 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4 hover:border-blue-400 transition cursor-pointer"
                     onclick="document.getElementById('qrImageInput').click()">
@@ -78,7 +115,7 @@
                     </button>
                 </div>
 
-                <!--  Processing Indicator -->
+                <!-- Processing Indicator -->
                 <div id="processingUpload" class="hidden text-center py-8">
                     <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
                     <p class="text-gray-700 font-semibold">Membaca QR Code...</p>
@@ -87,11 +124,11 @@
 
             <!-- Action Buttons -->
             <div class="grid grid-cols-2 gap-3 mb-4">
-                <button id="btnCheckIn" onclick="setMode('checkin')" 
+                <button id="btnCheckIn" onclick="unlockAudio(); setMode('checkin')" 
                     class="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition">
                     <i class="fas fa-sign-in-alt mr-2"></i>Absen Masuk
                 </button>
-                <button id="btnCheckOut" onclick="setMode('checkout')" 
+                <button id="btnCheckOut" onclick="unlockAudio(); setMode('checkout')"
                     class="bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-semibold transition">
                     <i class="fas fa-sign-out-alt mr-2"></i>Absen Pulang
                 </button>
@@ -136,24 +173,186 @@
 </div>
 
 <!-- Audio Feedback -->
-<audio id="successSound" preload="auto">
-    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWm98OScTgwOUKzn77RgGwU7k9r0yXosBiJ+z/PhlUEKFFuw7u+nVRQKRp/h8L50IAUsgc/y2Ik2CBlpvfDknE4MDlCr5vK1YRsGOpPa9Ml6LAYif9D04pVBChRbr+7wqFYUCkef4fC+dCAFLIHP8tmJNggZaLzw5JxODA5Qq+b0tWEbBjqT2vTJeiwGIX/R9OOVQQsUWq/u8KlXFApHn+Hwv3QgBSyB0fLaijYIGWi88OWcTgwOUKvm9LdhGwY6k9r0yXosBiF/0fTjlUELFFqv7vCpVxQKR5/h8L90IAUsgdDy2oo2CBlovPDlnE4MDlCr5vS3YRsGOpLa9Ml6LAYhftL05JVBCxRbr+7wqVcUCkef4e++dCAFLIDQ8tqKNggZaL3w5ZxODA5Qq+b0t2EbBjqS2vTJeiwGIX7S9OSVQQsUW6/u8KlXFApHn+Hvv3QgBSyA0PLaijYIGWi98OWcTgwOUKvm9LZhGwY6ktr0yXosBiF+0/TklUELFFqv7vCpVxQKR5/h7790IAUsgNDy2oo2CBlou/DlnE4MDlCr5vS2YRsGOpLa9Ml6LAYhftT05JVBCxRar+7wqVcUCkef4e+/dCAFLIDQ8tqKNggZaL3w5ZxODA5Qq+b0tmEbBjqS2vTJeiwGIX7U9OSVQQsUWq/u8KlXFApHn+Hvv3QgBSyA0PLaijYIGWi98OWcTgwOUKvm9LZhGwY6ktr0yXosBiF+1PTklUELFFqv7vCpVxQKR5/h7790IAUsgNDy2oo2CBlou/DlnE4MDlCr5vS2YRsGOpLa9Ml6LAYhftT05JVBCxRar+7wqVcUCkef4e+/dCAFLIDQ8tqKNggZaLzw5pxODA5Qq+b0tmEbBjqS2vTJeiwGIX7U9OSVQQsUWq/u8KlXFApHn+Hvv3QgBSyA0PLaijYIGWi88OacTgwOUKvm9LZhGwY6ktr0yXosBiF+1PTklUELFFqv7vCpVxQKR5/h7790IAUsgNDy2oo2CBlou/DlnE4MDlCr5vS2YRsGOpLa9Ml6LAYhftT05JVBCxRar+7wqVcUCkef4e+/dCAFLIDQ8tqKNggZaLzw5pxODA5Qq+b0tmEbBjqS2vTJeiwGIX7U9OSVQQsUWq/u8KlXFApHn+Hvv3QgBSyA0PLaijYIGWi88OacTgwOUKvm9LZhGwY6ktr0yXosBiF+1PTklUELFFqv7vCpVxQKR5/h7790IAUsgNDy2oo2CBlou/DlnE4MDlCr5vS2YRsGOpLa9Ml6LAYhftT05JVBCxRar+7wqVcUCkef4e+/dCAFLIDQ8tqKNggZaLzw5pxODA5Qq+b0tmEbBjqS2vTJeiwGIX7U9OSVQQsUWq/u8KlXFApHn+Hvv3QgBSyA0PLaijYIGWi88OacTgwOUKvm9LZhGwY6ktr0yXosBiF+1PTklUELFFqv7vCpVxQKR5/h7790IA" type="audio/wav">
+{{-- <audio id="successSound" preload="auto">
+    <source src="{{ asset('sounds/success.mp3') }}" type="audio/mpeg">
 </audio>
 <audio id="errorSound" preload="auto">
-    <source src="data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm0G8AoBAAAAA==" type="audio/wav">
+    <source src="{{ asset('sounds/error.mp3') }}" type="audio/mpeg">
 </audio>
-
+<audio id="scanningSound" preload="auto">
+    <source src="{{ asset('sounds/scan.mp3') }}" type="audio/mpeg">
+</audio> --}}
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/index.min.js"></script>
 
 <script>
+
+let audioUnlocked = false;
+
+function unlockAudio() {
+    if (audioUnlocked) return;
+
+    const sounds = [
+        document.getElementById('successSound'),
+        document.getElementById('errorSound'),
+        document.getElementById('scanningSound')
+    ];
+
+    sounds.forEach(audio => {
+        if (!audio) return;
+        audio.volume = 0.01;
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+        }).catch(() => {});
+    });
+
+    audioUnlocked = true;
+    console.log("🔓 Audio unlocked by user interaction");
+}
+
+let soundEnabled = false;
+
+function enableSound() {
+    const success = document.getElementById('successSound');
+    const error = document.getElementById('errorSound');
+    const scan = document.getElementById('scanningSound');
+
+    [success, error, scan].forEach(audio => {
+        if (!audio) return;
+        audio.volume = 1;
+        audio.muted = false;
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+        }).catch(() => {});
+    });
+
+    soundEnabled = true;
+    alert("Sound scanner aktif ✅");
+}
+
+
 let video, canvas, canvasContext;
 let scanning = false;
 let scanType = 'checkin';
 let isProcessing = false;
-let currentMode = 'camera'; // 'camera' or 'upload'
+let currentMode = 'camera';
+let cameraInitialized = false;
 
-//  Switch Mode
+function playBeep() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "square";
+    osc.frequency.value = 1200; // nada beep
+    gain.gain.value = 0.1;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    setTimeout(() => {
+        osc.stop();
+        ctx.close();
+    }, 120);
+}
+
+function playSound(type) {
+    if (!soundEnabled) return; // jangan play kalau belum diaktifkan
+
+    let audio;
+    if (type === 'success') audio = document.getElementById('successSound');
+    if (type === 'error') audio = document.getElementById('errorSound');
+    if (type === 'scanning') audio = document.getElementById('scanningSound');
+
+    if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+    }
+}
+
+function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+
+    const doSpeak = () => {
+        const voices = speechSynthesis.getVoices();
+        let voice = voices.find(v => v.lang === 'id-ID') 
+                 || voices.find(v => v.lang.startsWith('id')) 
+                 || voices.find(v => v.lang === 'en-US');
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = voice;
+        utterance.lang = voice ? voice.lang : 'id-ID';
+        utterance.rate = 1.15;   // standar segini
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        speechSynthesis.cancel(); // stop suara lama kalau numpuk
+        speechSynthesis.speak(utterance);
+    };
+
+    if (speechSynthesis.getVoices().length === 0) {
+        speechSynthesis.onvoiceschanged = doSpeak;
+    } else {
+        doSpeak();
+    }
+}
+
+function randomSpeak(messages, nama) {
+    if (!Array.isArray(messages) || messages.length === 0) return;
+
+    // pilih kalimat acak
+    const randomText = messages[Math.floor(Math.random() * messages.length)];
+
+    // ganti {nama} dengan nama asli
+    const finalText = randomText.replace('{nama}', nama);
+
+    speak(finalText);
+}
+
+function speakAttendance(result, scanType) {
+    let nama = result.student?.name || "siswa";
+    let status = result.status; // dari backend Laravel
+
+    if (scanType === 'checkin') {
+
+        if (status === 'terlambat') {
+            randomSpeak([
+                "Absensi masuk tercatat, namun kamu terlambat hari ini, {nama}.",
+                "Perhatian {nama}, kamu datang terlambat hari ini.",
+                "Kehadiran diterima dengan status terlambat, {nama}.",
+                "Absensi berhasil, tapi kamu terlambat. Besok jangan ya, {nama}."
+            ], nama);
+
+        } else {
+            randomSpeak([
+                "Absensi masuk berhasil. Selamat datang, {nama}.",
+                "Kehadiran tercatat. Selamat belajar, {nama}.",
+                "Scan berhasil. Semoga harimu menyenangkan, {nama}.",
+                "Selamat pagi {nama}, absensi kamu sudah masuk."
+            ], nama);
+        }
+
+    } else if (scanType === 'checkout') {
+
+        if (result.is_early) {
+            randomSpeak([
+                "Absensi pulang tercatat lebih awal. Semoga urusannya lancar, {nama}.",
+                "Kamu pulang lebih cepat hari ini, {nama}. Hati-hati di jalan.",
+                "Izin pulang lebih awal diterima. Jaga kesehatan ya, {nama}."
+            ], nama);
+        } else {
+            randomSpeak([
+                "Absensi pulang berhasil. Hati-hati di jalan, {nama}.",
+                "Sampai jumpa besok, {nama}.",
+                "Kepulangan dicatat. Semoga selamat sampai rumah, {nama}."
+            ], nama);
+        }
+    }
+}
+
+// Switch Mode
 function switchMode(mode) {
     currentMode = mode;
     
@@ -163,7 +362,11 @@ function switchMode(mode) {
         document.getElementById('btnModeCamera').className = 'py-3 px-4 rounded-lg font-semibold transition border-2 border-blue-600 bg-blue-600 text-white';
         document.getElementById('btnModeUpload').className = 'py-3 px-4 rounded-lg font-semibold transition border-2 border-gray-300 text-gray-700 hover:bg-gray-50';
         
-        if (!video) initCamera();
+        if (!cameraInitialized) {
+            initCamera();
+        } else {
+            startScanning();
+        }
     } else {
         document.getElementById('cameraMode').classList.add('hidden');
         document.getElementById('uploadMode').classList.remove('hidden');
@@ -186,7 +389,7 @@ function setMode(type) {
         document.getElementById('btnCheckIn').classList.remove('ring-4', 'ring-blue-300');
     }
     
-    if (currentMode === 'camera') {
+    if (currentMode === 'camera' && cameraInitialized) {
         startScanning();
     }
 }
@@ -197,45 +400,103 @@ async function initCamera() {
     canvas = document.createElement('canvas');
     canvasContext = canvas.getContext('2d');
     
+    // Show loading
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('errorState').classList.add('hidden');
+    
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
         });
+        
         video.srcObject = stream;
-        await new Promise(resolve => { video.onloadedmetadata = resolve; });
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+
+        // Kalau kamera depan → mirror
+        if (settings.facingMode === "user") {
+            video.style.transform = "scaleX(-1)";
+        } else {
+            video.style.transform = "scaleX(1)";
+        }
+
+        speak("Scanner aktif. Silakan arahkan kode QR ke kamera");
+
+        await new Promise((resolve, reject) => {
+            video.onloadedmetadata = resolve;
+            video.onerror = reject;
+            setTimeout(() => reject(new Error('Timeout')), 10000);
+        });
+        
+        cameraInitialized = true;
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('statusText').textContent = 'Ready';
+        console.log('Camera initialized successfully');
+        
+        // Auto start scanning
+        startScanning();
+        
     } catch (error) {
-        alert('Gagal mengakses kamera: ' + error.message);
+        console.error('Camera init error:', error);
+        cameraInitialized = false;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('errorState').classList.remove('hidden');
+        document.getElementById('errorState').classList.add('flex');
+        document.getElementById('errorMessage').textContent = 'Gagal mengakses kamera: ' + error.message;
         document.getElementById('statusText').textContent = 'Error: No camera';
     }
 }
 
+function retryCamera() {
+    document.getElementById('errorState').classList.add('hidden');
+    initCamera();
+}
+
 function startScanning() {
-    if (scanning) return;
+    if (scanning || !cameraInitialized) return;
+    
     scanning = true;
     isProcessing = false;
     document.getElementById('pausedState').classList.add('hidden');
+    document.getElementById('pausedState').classList.remove('flex');
     document.getElementById('statusText').textContent = 'Scanning...';
     document.getElementById('scanIndicator').className = 'absolute inset-0 border-4 border-blue-500 animate-pulse pointer-events-none';
+    
+    console.log('Scanning started, mode:', scanType);
     requestAnimationFrame(tick);
 }
 
 function tick() {
     if (!scanning) return;
+    
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth"
+        });
         
-        if (code && !isProcessing) {
+       if (code && !isProcessing) {
+
+            playBeep(); // bunyi beep dulu
+            speak("Kode terdeteksi. Memproses data");
+
+            document.getElementById('scanIndicator').className =
+                'absolute inset-0 border-4 border-green-500 pointer-events-none animate-pulse';
+
             processQRCode(code.data);
             return;
-        }
+}
+
     }
+    
     requestAnimationFrame(tick);
 }
 
@@ -243,10 +504,13 @@ function stopCameraScanning() {
     scanning = false;
     if (video && video.srcObject) {
         video.srcObject.getTracks().forEach(track => track.stop());
+        cameraInitialized = false;
     }
 }
 
 function resumeScanning() {
+    document.getElementById('pausedState').classList.add('hidden');
+    document.getElementById('pausedState').classList.remove('flex');
     startScanning();
 }
 
@@ -255,6 +519,7 @@ function toggleScanner() {
         scanning = false;
         document.getElementById('pausedState').classList.remove('hidden');
         document.getElementById('pausedState').classList.add('flex');
+        document.getElementById('statusText').textContent = 'Paused';
     } else {
         resumeScanning();
     }
@@ -279,14 +544,14 @@ async function handleImageUpload(event) {
         img.onload = () => {
             document.getElementById('processingUpload').classList.remove('hidden');
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const tempCanvas = document.createElement('canvas');
+            const ctx = tempCanvas.getContext('2d');
 
-            canvas.width = img.width;
-            canvas.height = img.height;
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
 
             const code = jsQR(
                 imageData.data,
@@ -318,14 +583,20 @@ function clearUpload() {
 
 // ============ PROCESS QR ============
 async function processQRCode(qrData) {
-    if (isProcessing) return;
-    isProcessing = true;
+    if (isProcessing) {
+        console.log('Already processing, skip');
+        return;
+    }
     
+    isProcessing = true;
     scanning = false;
-    document.getElementById('scanIndicator').className = 'absolute inset-0 border-4 border-transparent pointer-events-none';
+    
+    document.getElementById('scanIndicator').className = 'absolute inset-0 border-4 border-yellow-500 pointer-events-none';
     document.getElementById('statusText').textContent = 'Processing...';
     
-        try {
+    console.log('Processing QR:', qrData.substring(0, 30) + '...');
+    
+    try {
         const response = await fetch('{{ route("admin.qr-scan") }}', {
             method: 'POST',
             headers: {
@@ -339,96 +610,176 @@ async function processQRCode(qrData) {
         });
 
         const result = await response.json();
+        console.log('Server response:', result);
 
         if (!response.ok) {
-            console.warn('SERVER ERROR:', result);
 
-            showError(
-                result.message ||
-                result.error ||
-                'QR tidak valid atau request ditolak'
-            );
-            playSound('error');
-            return;
-        }
+    const msg = result.message || result.error || 'QR tidak valid atau request ditolak';
 
-        if (result.success === true) {
-            showSuccess(result);
-            playSound('success');
-        } else {
-            showError(result.message || 'QR tidak valid');
-            playSound('error');
-        }
+    document.getElementById('scanIndicator').className =
+        'absolute inset-0 border-4 border-red-500 pointer-events-none';
+
+    playSound('error');
+    showError(msg);
+    speak("Absensi ditolak. " + msg);
+
+} else if (result.success === true) {
+
+    document.getElementById('scanIndicator').className =
+        'absolute inset-0 border-4 border-green-500 pointer-events-none';
+
+    playSound('success');
+    showSuccess(result)
+    speakAttendance(result, scanType);
+
+    // let successText = scanType === 'checkin'
+    //     ? `Absensi masuk berhasil. Selamat datang ${result.student.name}`
+    //     : `Absensi pulang berhasil. Hati-hati di jalan ${result.student.name}`;
+
+    // speak(successText);
+
+} else {
+
+    const msg = result.message || 'QR tidak valid';
+
+    document.getElementById('scanIndicator').className =
+        'absolute inset-0 border-4 border-red-500 pointer-events-none';
+
+    playSound('error');
+    showError(msg);
+    speak("Absensi gagal. " + msg);
+}
+
+        
+//         let successText = scanType === 'checkin'
+//     ? `Absensi masuk berhasil. Selamat datang ${result.student.name}`
+//     : `Absensi pulang berhasil. Hati-hati di jalan ${result.student.name}`;
+
+// speak(successText);
+
 
     } catch (error) {
         console.error('NETWORK ERROR:', error);
-        showError('Gagal menghubungi server');
+        
+        // NETWORK ERROR FEEDBACK
+        document.getElementById('scanIndicator').className = 'absolute inset-0 border-4 border-red-500 pointer-events-none';
         playSound('error');
+        
+        showError('Gagal menghubungi server: ' + error.message);
+        
     } finally {
         isProcessing = false;
-    }
-
-    
-    document.getElementById('statusText').textContent = 'Scan completed';
-    
-    if (currentMode === 'camera') {
-        document.getElementById('pausedState').classList.remove('hidden');
-        document.getElementById('pausedState').classList.add('flex');
-    } else {
-        clearUpload();
+        
+        // Reset indicator after 1 second
+        setTimeout(() => {
+            document.getElementById('scanIndicator').className = 'absolute inset-0 border-4 border-transparent pointer-events-none transition-all duration-300';
+        }, 1000);
+        
+        document.getElementById('statusText').textContent = 'Scan completed';
+        
+        if (currentMode === 'camera') {
+            document.getElementById('pausedState').classList.remove('hidden');
+            document.getElementById('pausedState').classList.add('flex');
+        } else {
+            clearUpload();
+        }
     }
 }
 
 function showSuccess(result) {
     const scanDiv = document.createElement('div');
-    scanDiv.className = 'bg-green-50 border border-green-200 rounded p-3 hover:shadow-md transition';
+    scanDiv.className = 'bg-green-50 border-2 border-green-400 rounded-lg p-3 hover:shadow-md transition-all duration-300 animate-slideIn';
     scanDiv.innerHTML = `
         <div class="flex items-center justify-between">
-            <div>w
+            <div>
                 <p class="font-semibold text-green-900">${result.student.name}</p>
                 <p class="text-sm text-green-700">${result.student.nisn} - ${result.student.class}</p>
                 <p class="text-xs text-green-600 mt-1">
                     <i class="fas fa-clock mr-1"></i>${result.time} - 
                     <span class="font-semibold">${scanType === 'checkin' ? 'MASUK' : 'PULANG'}</span>
-                    ${result.status === 'terlambat' ? '<span class="text-yellow-600">(Terlambat)</span>' : ''}
+                    ${result.status === 'terlambat' ? '<span class="text-yellow-600 font-bold">(⚠ Terlambat)</span>' : '<span class="text-green-600">✓</span>'}
                 </p>
             </div>
-            <i class="fas fa-check-circle text-2xl text-green-600"></i>
+            <i class="fas fa-check-circle text-3xl text-green-600 animate-bounce"></i>
         </div>
     `;
     
     const container = document.getElementById('recentScans');
-    if (container.firstChild.tagName === 'P') container.innerHTML = '';
+    if (container.firstChild && container.firstChild.tagName === 'P') {
+        container.innerHTML = '';
+    }
     container.insertBefore(scanDiv, container.firstChild);
 }
 
 function showError(message) {
     const scanDiv = document.createElement('div');
-    scanDiv.className = 'bg-red-50 border border-red-200 rounded p-3';
+    scanDiv.className = 'bg-red-50 border-2 border-red-400 rounded-lg p-3 animate-shake';
     scanDiv.innerHTML = `
         <div class="flex items-center justify-between">
             <div>
-                <p class="font-semibold text-red-900">Error</p>
+                <p class="font-semibold text-red-900">❌ Error</p>
                 <p class="text-sm text-red-700">${message}</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-info-circle mr-1"></i>Silakan coba lagi atau hubungi admin
+                </p>
             </div>
-            <i class="fas fa-times-circle text-2xl text-red-600"></i>
+            <i class="fas fa-times-circle text-3xl text-red-600"></i>
         </div>
     `;
     
     const container = document.getElementById('recentScans');
-    if (container.firstChild.tagName === 'P') container.innerHTML = '';
+    if (container.firstChild && container.firstChild.tagName === 'P') {
+        container.innerHTML = '';
+    }
     container.insertBefore(scanDiv, container.firstChild);
 }
 
-function playSound(type) {
-    const audio = document.getElementById(type === 'success' ? 'successSound' : 'errorSound');
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-}
+// Add custom animations via style tag
+const style = document.createElement('style');
+style.textContent = `
+    /* FIX MIRROR CAMERA */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+    .animate-slideIn {
+        animation: slideIn 0.3s ease-out;
+    }
+    .animate-shake {
+        animation: shake 0.4s ease-in-out;
+    }
+`;
+document.head.appendChild(style);
 
-// Init
+// Init on page load
+
 window.addEventListener('load', () => {
+    console.log('Page loaded, initializing...');
+    setMode('checkin');
     initCamera();
 });
+// UNLOCK AUDIO SAAT USER TEKAN TOMBOL CAMERA
+document.getElementById('btnModeCamera')?.addEventListener('click', () => {
+    unlockAudio();
+    speak("...");
+
+    // TEST SOUND LANGSUNG SAAT DIKLIK
+    setTimeout(() => {
+        playSound('success');
+    }, 500);
+});
+
+
 </script>
 @endsection

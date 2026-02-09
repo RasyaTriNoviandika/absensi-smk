@@ -17,21 +17,7 @@ use App\Livewire\Admin\Students;
 use App\Livewire\Student\Dashboard as StudentDashboard;
 use App\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
 
-// use App\Http\Livewire\Admin\Dashboard as AdminDashboard;
-// use App\Http\Livewire\Admin\Approvals as AdminApprovals;
-// use App\Http\Livewire\Admin\Monitoring as AdminMonitoring;
-// use App\Http\Livewire\Admin\History as AdminHistory;
-// use App\Http\Livewire\Admin\Reports as AdminReports;
-// use App\Http\Livewire\Student\Dashboard as StudentDashboard;
-// use App\Http\Livewire\Student\AttendanceHistory as StudentAttendanceHistory;
-
-/*
-|--------------------------------------------------------------------------
-| Public Routes
-|--------------------------------------------------------------------------
-*/
 Route::get('/', fn() => view('welcome'))->name('home');
-
 
 // Auth Routes
 Route::middleware('guest')->group(function () {
